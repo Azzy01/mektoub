@@ -202,6 +202,7 @@ export default function NotePage({ id }: { id: string }) {
             >
               <option value="open">open</option>
               <option value="done">done</option>
+              <option value="planned">planned</option>
               <option value="archived">archived</option>
             </select>
 
