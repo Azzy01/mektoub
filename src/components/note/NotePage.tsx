@@ -2,7 +2,10 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import type { FileRow, ListItem, Note, NoteStatus, NoteType } from '../lib/types'
+import TagsEditor from './TagsEditor'
+import AddItem from './AddItem'
+import { formatBytes, normTags, toLocalInput } from './utils'
+import type { FileRow, ListItem, Note, NoteStatus, NoteType } from '../../lib/types'
 import {
   addItem,
   attachFile,
@@ -14,7 +17,7 @@ import {
   listItems,
   toggleItem,
   updateNote,
-} from '../lib/repo'
+} from '../../lib/repo'
 
 const TYPE_LABEL: Record<NoteType, string> = {
   idea: 'Idea',
@@ -26,16 +29,6 @@ const TYPE_LABEL: Record<NoteType, string> = {
 
 type NotePatch = Partial<Pick<Note, 'title' | 'content' | 'status' | 'due_at' | 'project_id' | 'tags'>>
 
-function normTags(tags: string[] | undefined) {
-  return Array.from(
-    new Set(
-      (tags ?? [])
-        .map((t) => String(t).trim().toLowerCase())
-        .filter(Boolean)
-        .slice(0, 20)
-    )
-  ).sort()
-}
 
 export default function NotePage({ id }: { id: string }) {
   const [note, setNote] = useState<Note | null>(null)
@@ -346,99 +339,6 @@ export default function NotePage({ id }: { id: string }) {
   )
 }
 
-function TagsEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
-  const [text, setText] = useState('')
 
-  function addTag(raw: string) {
-    const t = raw.trim().toLowerCase()
-    if (!t) return
-    if (t.length > 30) return
-    const next = normTags([...(tags ?? []), t])
-    onChange(next)
-  }
 
-  return (
-    <div className="mt-2">
-      <div className="flex flex-wrap gap-2 mb-2">
-        {tags.map((t) => (
-          <span key={t} className="text-xs px-2 py-1 rounded bg-white/10 border border-white/10 flex items-center gap-2">
-            #{t}
-            <button className="opacity-70 hover:opacity-100" onClick={() => onChange(tags.filter((x) => x !== t))} title="remove" type="button">
-              ×
-            </button>
-          </span>
-        ))}
-        {tags.length === 0 && <span className="text-xs opacity-50">No tags</span>}
-      </div>
 
-      <input
-        className="border rounded px-3 py-2 w-full"
-        placeholder="Add tag and press Enter (example: work, ideas, health)"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            addTag(text)
-            setText('')
-          }
-        }}
-      />
-    </div>
-  )
-}
-
-function AddItem({ onAdd }: { onAdd: (text: string) => Promise<void> }) {
-  const [text, setText] = useState('')
-  return (
-    <div className="mt-3 flex gap-2">
-      <input
-        className="border rounded px-3 py-2 flex-1"
-        placeholder="New item..."
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={async (e) => {
-          if (e.key === 'Enter') {
-            const t = text.trim()
-            if (!t) return
-            setText('')
-            await onAdd(t)
-          }
-        }}
-      />
-      <button
-        className="border rounded px-3 py-2"
-        onClick={async () => {
-          const t = text.trim()
-          if (!t) return
-          setText('')
-          await onAdd(t)
-        }}
-      >
-        Add
-      </button>
-    </div>
-  )
-}
-
-function toLocalInput(iso: string) {
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const yyyy = d.getFullYear()
-  const mm = pad(d.getMonth() + 1)
-  const dd = pad(d.getDate())
-  const hh = pad(d.getHours())
-  const mi = pad(d.getMinutes())
-  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`
-}
-
-function formatBytes(bytes: number) {
-  const units = ['B', 'KB', 'MB', 'GB']
-  let b = bytes
-  let i = 0
-  while (b >= 1024 && i < units.length - 1) {
-    b /= 1024
-    i++
-  }
-  return `${b.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
-}

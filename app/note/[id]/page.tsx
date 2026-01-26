@@ -1,4 +1,4 @@
-import NotePage from '../../../src/components/NotePage'
+import NotePage from '../../../src/components/note/NotePage'
 
 export default async function Page({
   params,
