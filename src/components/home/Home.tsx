@@ -43,6 +43,21 @@ export default function Home() {
           <h1 className="text-xl font-semibold">Mektoub</h1>
 
           <div className="ml-auto flex flex-wrap gap-2">
+          <button
+            className="border rounded px-3 py-2"
+            onClick={async () => {
+            const id = await createNote({
+                type: 'idea',
+                title: 'Quick note',
+                content: '',
+                tags: ['quick'],
+            })
+            window.location.href = `/note/${id}`
+            }}
+        >
+            ⚡ Quick
+        </button>
+            
             <button className="border rounded px-3 py-2" onClick={() => onCreate('idea')}>
               + Idea
             </button>
