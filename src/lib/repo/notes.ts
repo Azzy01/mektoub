@@ -56,7 +56,7 @@ export async function listNotes(params?: {
     `
     SELECT * FROM notes
     ${whereSql}
-    ORDER BY updated_at DESC
+    ORDER BY pinned DESC, updated_at DESC
     LIMIT 500;
     `,
     values
@@ -140,4 +140,13 @@ export async function deleteNote(id: string): Promise<void> {
   await db.query(`DELETE FROM files WHERE note_id = $1;`, [id])
   await db.query(`DELETE FROM list_items WHERE note_id = $1;`, [id])
   await db.query(`DELETE FROM notes WHERE id = $1;`, [id])
+}
+
+
+export async function setPinned(id: string, pinned: 0 | 1): Promise<void> {
+  const db = await getDb()
+  await db.query(
+    `UPDATE notes SET pinned = $1, updated_at = $2 WHERE id = $3;`,
+    [pinned, nowIso(), id]
+  )
 }

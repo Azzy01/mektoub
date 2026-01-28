@@ -10,6 +10,7 @@ export type Note = {
     due_at: string | null
     project_id: string | null
     tags: string[]            // ✅ add this
+    pinned: 0 | 1
     created_at: string
     updated_at: string
   }
