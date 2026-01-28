@@ -65,9 +65,18 @@ async function migrate(db: PGlite) {
     ALTER TABLE notes ADD COLUMN IF NOT EXISTS tags TEXT NOT NULL DEFAULT '[]';
   `)
 
-  await db.exec(`
-  ALTER TABLE notes ADD COLUMN IF NOT EXISTS pinned INTEGER NOT NULL DEFAULT 0;
-`)
+    await db.exec(`
+    ALTER TABLE notes ADD COLUMN IF NOT EXISTS pinned INTEGER NOT NULL DEFAULT 0;
+  `)
+
+    await db.exec(`
+      ALTER TABLE notes ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 3;
+    `)
+
+    await db.exec(`
+      ALTER TABLE notes ADD COLUMN IF NOT EXISTS urgent INTEGER NOT NULL DEFAULT 0;
+    `)
+
 
 
 }

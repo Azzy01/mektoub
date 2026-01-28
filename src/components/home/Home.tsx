@@ -13,18 +13,41 @@ export default function Home() {
   const [q, setQ] = useState('')
   const [type, setType] = useState<NoteType | 'all'>('all')
   const [status, setStatus] = useState<NoteStatus | 'all'>('open') // ✅ default to open
+  const [urgentOnly, setUrgentOnly] = useState(false)
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
 
   async function refresh() {
     setLoading(true)
+    
     const res = await listNotes({ q, type, status })
-    setNotes(res)
+    const filtered = urgentOnly ? res.filter(n => n.urgent === 1) : res
+    setNotes(filtered)    
     setLoading(false)
+
+    const afterUrgent = urgentOnly ? res.filter((n) => n.urgent === 1) : res
+    const afterTag = tagFilter ? afterUrgent.filter((n) => (n.tags ?? []).includes(tagFilter)) : afterUrgent
+    setNotes(afterTag)
+
   }
 
+  function collectTopTags(ns: Note[]) {
+    const freq = new Map<string, number>()
+    for (const n of ns) {
+      for (const t of n.tags ?? []) {
+        freq.set(t, (freq.get(t) ?? 0) + 1)
+      }
+    }
+    return Array.from(freq.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([t]) => t)
+  }
+
+  
   useEffect(() => {
     refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, type, status])
+  }, [q, type, status, urgentOnly, tagFilter])
 
   async function onCreate(t: NoteType) {
     const id = await createNote({
@@ -76,7 +99,56 @@ export default function Home() {
           </div>
         </div>
 
-        <FiltersBar q={q} setQ={setQ} type={type} setType={setType} status={status} setStatus={setStatus} />
+       
+
+        <FiltersBar
+        q={q}
+        setQ={setQ}
+        type={type}
+        setType={setType}
+        status={status}
+        setStatus={setStatus}
+        urgentOnly={urgentOnly}
+        setUrgentOnly={setUrgentOnly}
+        />
+
+        {(() => {
+        const baseList = notes // these are already filtered; good for “contextual tags”
+        const tags = collectTopTags(baseList)
+
+        if (tags.length === 0) return null
+
+        return (
+            <div className="flex flex-wrap gap-2">
+            {tags.map((t) => {
+                const active = tagFilter === t
+                return (
+                <button
+                    key={t}
+                    className={`text-xs px-2 py-1 rounded border ${
+                    active ? 'bg-white/20 border-white/30' : 'bg-white/10 border-white/10 hover:bg-white/15'
+                    }`}
+                    onClick={() => setTagFilter(active ? null : t)}
+                >
+                    #{t}
+                </button>
+                )
+            })}
+
+            {tagFilter && (
+                <button
+                className="text-xs px-2 py-1 rounded border bg-white/10 border-white/10 hover:bg-white/15 opacity-80"
+                onClick={() => setTagFilter(null)}
+                title="Clear tag filter"
+                >
+                Clear
+                </button>
+            )}
+            </div>
+        )
+        })()}
+
+
 
         {loading ? (
           <div className="opacity-70">Loading…</div>

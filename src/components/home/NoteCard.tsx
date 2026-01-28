@@ -11,6 +11,7 @@ const TYPE_BADGE: Record<Note['type'], string> = {
   file: 'File',
 }
 
+
 export default function NoteCard(props: {
   note: Note
   onTogglePin: (id: string, nextPinned: 0 | 1) => Promise<void>
@@ -41,6 +42,17 @@ export default function NoteCard(props: {
               </span>
             )}
           </div>
+
+          {note.urgent === 1 && (
+            <span className="text-xs px-2 py-1 rounded bg-white/10 border border-white/10">
+                ⚠️ URGENT
+            </span>
+            )}
+
+            <span className="text-xs px-2 py-1 rounded bg-white/10 border border-white/10 opacity-80">
+            P{note.priority ?? 3}
+            </span>
+
 
           <div className="mt-2 font-semibold truncate">{note.title}</div>
 

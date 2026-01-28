@@ -10,6 +10,8 @@ export default function FiltersBar(props: {
   setType: (v: NoteType | 'all') => void
   status: NoteStatus | 'all'
   setStatus: (v: NoteStatus | 'all') => void
+  urgentOnly: boolean
+  setUrgentOnly: (v: boolean) => void
 }) {
   const typeOptions = useMemo(
     () => [
@@ -66,6 +68,15 @@ export default function FiltersBar(props: {
           </option>
         ))}
       </select>
+
+      <label className="flex items-center gap-2 text-sm opacity-80">
+        <input
+          type="checkbox"
+          checked={props.urgentOnly}
+          onChange={(e) => props.setUrgentOnly(e.target.checked)}
+        />
+        Urgent only
+      </label>
     </div>
   )
 }

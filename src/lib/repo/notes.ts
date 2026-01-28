@@ -56,7 +56,7 @@ export async function listNotes(params?: {
     `
     SELECT * FROM notes
     ${whereSql}
-    ORDER BY pinned DESC, updated_at DESC
+    ORDER BY pinned DESC, urgent DESC, priority ASC, updated_at DESC
     LIMIT 500;
     `,
     values
@@ -119,7 +119,8 @@ export async function updateNote(
   const fields: string[] = []
   const values: any[] = []
 
-  const allowed = ['title', 'content', 'status', 'due_at', 'project_id', 'tags'] as const
+  const allowed = ['title', 'content', 'status', 'due_at', 'project_id', 'tags', 'pinned', 'priority', 'urgent'] as const
+
   for (const key of allowed) {
     if (key in normalized) {
       values.push(normalized[key])

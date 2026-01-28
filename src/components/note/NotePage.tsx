@@ -2,9 +2,6 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import TagsEditor from './TagsEditor'
-import AddItem from './AddItem'
-import { formatBytes, normTags, toLocalInput } from './utils'
 import type { FileRow, ListItem, Note, NoteStatus, NoteType } from '../../lib/types'
 import {
   addItem,
@@ -18,6 +15,9 @@ import {
   toggleItem,
   updateNote,
 } from '../../lib/repo'
+import TagsEditor from './TagsEditor'
+import AddItem from './AddItem'
+import { formatBytes, normTags, toLocalInput } from './utils'
 
 const TYPE_LABEL: Record<NoteType, string> = {
   idea: 'Idea',
@@ -27,8 +27,12 @@ const TYPE_LABEL: Record<NoteType, string> = {
   file: 'File note',
 }
 
-type NotePatch = Partial<Pick<Note, 'title' | 'content' | 'status' | 'due_at' | 'project_id' | 'tags'>>
-
+type NotePatch = Partial<
+  Pick<
+    Note,
+    'title' | 'content' | 'status' | 'due_at' | 'project_id' | 'tags' | 'priority' | 'urgent'
+  >
+>
 
 export default function NotePage({ id }: { id: string }) {
   const [note, setNote] = useState<Note | null>(null)
@@ -37,7 +41,7 @@ export default function NotePage({ id }: { id: string }) {
   const [files, setFiles] = useState<FileRow[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [dirty, setDirty] = useState(false) // ✅ inside component
+  const [dirty, setDirty] = useState(false)
 
   const effective = useMemo(() => {
     if (!note) {
@@ -47,6 +51,8 @@ export default function NotePage({ id }: { id: string }) {
         status: (draft.status ?? 'open') as NoteStatus,
         due_at: (draft.due_at ?? null) as string | null,
         tags: normTags(draft.tags),
+        priority: Number(draft.priority ?? 3),
+        urgent: ((draft.urgent ?? 0) as 0 | 1) ?? 0,
       }
     }
 
@@ -56,6 +62,8 @@ export default function NotePage({ id }: { id: string }) {
       status: (draft.status ?? note.status) as NoteStatus,
       due_at: (draft.due_at ?? note.due_at) as string | null,
       tags: normTags(draft.tags ?? note.tags),
+      priority: Number(draft.priority ?? note.priority ?? 3),
+      urgent: ((draft.urgent ?? note.urgent ?? 0) as 0 | 1) ?? 0,
     }
   }, [draft, note])
 
@@ -72,6 +80,8 @@ export default function NotePage({ id }: { id: string }) {
             due_at: n.due_at,
             project_id: n.project_id,
             tags: n.tags ?? [],
+            priority: n.priority ?? 3,
+            urgent: (n.urgent ?? 0) as 0 | 1,
           }
         : {}
     )
@@ -112,6 +122,8 @@ export default function NotePage({ id }: { id: string }) {
         status: effective.status,
         due_at: effective.due_at ?? null,
         tags: normTags(effective.tags),
+        priority: Number(effective.priority ?? 3),
+        urgent: (effective.urgent ?? 0) as 0 | 1,
       }
 
       await updateNote(n.id, patch)
@@ -132,6 +144,8 @@ export default function NotePage({ id }: { id: string }) {
       due_at: n.due_at,
       project_id: n.project_id,
       tags: n.tags ?? [],
+      priority: n.priority ?? 3,
+      urgent: (n.urgent ?? 0) as 0 | 1,
     })
     setDirty(false)
     setError(null)
@@ -161,7 +175,9 @@ export default function NotePage({ id }: { id: string }) {
 
           <span className="text-xs px-2 py-1 rounded bg-gray-100">{TYPE_LABEL[n.type]}</span>
 
-          <span className="ml-auto text-xs opacity-70">{dirty ? 'Unsaved changes' : saving ? 'Saving…' : 'Saved'}</span>
+          <span className="ml-auto text-xs opacity-70">
+            {dirty ? 'Unsaved changes' : saving ? 'Saving…' : 'Saved'}
+          </span>
         </div>
 
         {error ? (
@@ -198,6 +214,34 @@ export default function NotePage({ id }: { id: string }) {
               <option value="archived">archived</option>
             </select>
 
+            <label className="text-xs opacity-70">Priority</label>
+            <select
+              className="border rounded px-3 py-2"
+              value={String(effective.priority ?? 3)}
+              onChange={(e) => {
+                setDraft((d) => ({ ...d, priority: Number(e.target.value) }))
+                setDirty(true)
+              }}
+            >
+              <option value="1">1 (highest)</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5 (lowest)</option>
+            </select>
+
+            <label className="flex items-center gap-2 text-sm opacity-80">
+              <input
+                type="checkbox"
+                checked={(effective.urgent ?? 0) === 1}
+                onChange={(e) => {
+                  setDraft((d) => ({ ...d, urgent: e.target.checked ? 1 : 0 }))
+                  setDirty(true)
+                }}
+              />
+              Urgent
+            </label>
+
             {n.type === 'task' && (
               <>
                 <label className="text-xs opacity-70">Due</label>
@@ -215,10 +259,18 @@ export default function NotePage({ id }: { id: string }) {
             )}
 
             <div className="ml-auto flex gap-2">
-              <button className="border rounded px-3 py-2 disabled:opacity-50" disabled={!dirty || saving} onClick={saveDraft}>
+              <button
+                className="border rounded px-3 py-2 disabled:opacity-50"
+                disabled={!dirty || saving}
+                onClick={saveDraft}
+              >
                 Save
               </button>
-              <button className="border rounded px-3 py-2 disabled:opacity-50" disabled={!dirty || saving} onClick={cancelDraft}>
+              <button
+                className="border rounded px-3 py-2 disabled:opacity-50"
+                disabled={!dirty || saving}
+                onClick={cancelDraft}
+              >
                 Cancel
               </button>
               <button className="border rounded px-3 py-2" onClick={onDelete}>
@@ -316,7 +368,11 @@ export default function NotePage({ id }: { id: string }) {
                     </div>
                   </div>
 
-                  <a className="ml-auto underline text-sm" download={f.filename} href={`data:${f.mime};base64,${f.data_base64}`}>
+                  <a
+                    className="ml-auto underline text-sm"
+                    download={f.filename}
+                    href={`data:${f.mime};base64,${f.data_base64}`}
+                  >
                     download
                   </a>
 
@@ -338,7 +394,3 @@ export default function NotePage({ id }: { id: string }) {
     </div>
   )
 }
-
-
-
-

@@ -11,6 +11,8 @@ export type Note = {
     project_id: string | null
     tags: string[]            // ✅ add this
     pinned: 0 | 1
+    priority: number
+    urgent: 0 | 1
     created_at: string
     updated_at: string
   }
