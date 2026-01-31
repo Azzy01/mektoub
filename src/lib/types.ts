@@ -13,6 +13,7 @@ export type Note = {
     pinned: 0 | 1
     priority: number
     urgent: 0 | 1
+    notebook_id: string | null
     created_at: string
     updated_at: string
   }
@@ -35,5 +36,12 @@ export type FileRow = {
   mime: string
   size: number
   data_base64: string
+  created_at: string
+}
+
+
+export type Notebook = {
+  id: string
+  name: string
   created_at: string
 }

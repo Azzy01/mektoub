@@ -15,13 +15,17 @@ export async function listNotes(params?: {
   type?: NoteType | 'all'
   q?: string
   projectId?: string | 'all' | 'none'
+  notebookId?: string | 'all' | 'none'
   status?: NoteStatus | 'all'
+  
 }): Promise<Note[]> {
   const db = await getDb()
   const type = params?.type ?? 'all'
   const q = (params?.q ?? '').trim()
   const projectId = params?.projectId ?? 'all'
   const status = params?.status ?? 'all'
+  const notebookId = params?.notebookId ?? 'all'
+
 
   const where: string[] = []
   const values: any[] = []
@@ -44,6 +48,16 @@ export async function listNotes(params?: {
       where.push(`project_id = $${values.length}`)
     }
   }
+
+  if (notebookId !== 'all') {
+    if (notebookId === 'none') {
+      where.push(`notebook_id IS NULL`)
+    } else {
+      values.push(notebookId)
+      where.push(`notebook_id = $${values.length}`)
+    }
+  }
+  
 
   if (q) {
     values.push(`%${q.toLowerCase()}%`)
@@ -78,6 +92,7 @@ export async function createNote(input: {
   title: string
   content?: string
   project_id?: string | null
+  notebook_id?: string | null
   due_at?: string | null
   tags?: string[]
 }): Promise<string> {
@@ -87,8 +102,18 @@ export async function createNote(input: {
 
   await db.query(
     `
-    INSERT INTO notes (id, type, title, content, status, due_at, project_id, tags, created_at, updated_at)
-    VALUES ($1,$2,$3,$4,'open',$5,$6,$7,$8,$9);
+    INSERT INTO notes (
+      id, type, title, content, status,
+      due_at, project_id, notebook_id,
+      tags, pinned, priority, urgent,
+      created_at, updated_at
+    )
+    VALUES (
+      $1,$2,$3,$4,'open',
+      $5,$6,$7,
+      $8,$9,$10,$11,
+      $12,$13
+    );
     `,
     [
       id,
@@ -97,7 +122,11 @@ export async function createNote(input: {
       input.content ?? '',
       input.due_at ?? null,
       input.project_id ?? null,
+      input.notebook_id ?? null,
       stringifyTags(input.tags ?? []),
+      0, // pinned default
+      3, // priority default
+      0, // urgent default
       ts,
       ts,
     ]
@@ -105,6 +134,7 @@ export async function createNote(input: {
 
   return id
 }
+
 
 export async function updateNote(
   id: string,
@@ -119,7 +149,8 @@ export async function updateNote(
   const fields: string[] = []
   const values: any[] = []
 
-  const allowed = ['title', 'content', 'status', 'due_at', 'project_id', 'tags', 'pinned', 'priority', 'urgent'] as const
+  const allowed = ['title','content','status','due_at','project_id','notebook_id','tags','pinned','priority','urgent'] as const
+
 
   for (const key of allowed) {
     if (key in normalized) {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import type { FileRow, ListItem, Note, NoteStatus, NoteType } from '../../lib/types'
+import type { FileRow, ListItem, Note, NoteStatus, NoteType, Notebook } from '../../lib/types'
 import {
   addItem,
   attachFile,
@@ -12,6 +12,7 @@ import {
   getNote,
   listFiles,
   listItems,
+  listNotebooks,
   toggleItem,
   updateNote,
 } from '../../lib/repo'
@@ -30,7 +31,15 @@ const TYPE_LABEL: Record<NoteType, string> = {
 type NotePatch = Partial<
   Pick<
     Note,
-    'title' | 'content' | 'status' | 'due_at' | 'project_id' | 'tags' | 'priority' | 'urgent'
+    | 'title'
+    | 'content'
+    | 'status'
+    | 'due_at'
+    | 'project_id'
+    | 'notebook_id'
+    | 'tags'
+    | 'priority'
+    | 'urgent'
   >
 >
 
@@ -42,6 +51,7 @@ export default function NotePage({ id }: { id: string }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
+  const [notebooks, setNotebooks] = useState<Notebook[]>([])
 
   const effective = useMemo(() => {
     if (!note) {
@@ -50,6 +60,8 @@ export default function NotePage({ id }: { id: string }) {
         content: (draft.content ?? '') as string,
         status: (draft.status ?? 'open') as NoteStatus,
         due_at: (draft.due_at ?? null) as string | null,
+        project_id: (draft.project_id ?? null) as string | null,
+        notebook_id: (draft.notebook_id ?? null) as string | null,
         tags: normTags(draft.tags),
         priority: Number(draft.priority ?? 3),
         urgent: ((draft.urgent ?? 0) as 0 | 1) ?? 0,
@@ -61,6 +73,8 @@ export default function NotePage({ id }: { id: string }) {
       content: (draft.content ?? note.content) as string,
       status: (draft.status ?? note.status) as NoteStatus,
       due_at: (draft.due_at ?? note.due_at) as string | null,
+      project_id: (draft.project_id ?? note.project_id ?? null) as string | null,
+      notebook_id: (draft.notebook_id ?? note.notebook_id ?? null) as string | null,
       tags: normTags(draft.tags ?? note.tags),
       priority: Number(draft.priority ?? note.priority ?? 3),
       urgent: ((draft.urgent ?? note.urgent ?? 0) as 0 | 1) ?? 0,
@@ -78,7 +92,8 @@ export default function NotePage({ id }: { id: string }) {
             content: n.content,
             status: n.status,
             due_at: n.due_at,
-            project_id: n.project_id,
+            project_id: n.project_id ?? null,
+            notebook_id: n.notebook_id ?? null,
             tags: n.tags ?? [],
             priority: n.priority ?? 3,
             urgent: (n.urgent ?? 0) as 0 | 1,
@@ -97,6 +112,7 @@ export default function NotePage({ id }: { id: string }) {
 
   useEffect(() => {
     load()
+    listNotebooks().then(setNotebooks)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -121,6 +137,8 @@ export default function NotePage({ id }: { id: string }) {
         content: effective.content,
         status: effective.status,
         due_at: effective.due_at ?? null,
+        project_id: effective.project_id ?? null,
+        notebook_id: effective.notebook_id ?? null,
         tags: normTags(effective.tags),
         priority: Number(effective.priority ?? 3),
         urgent: (effective.urgent ?? 0) as 0 | 1,
@@ -142,7 +160,8 @@ export default function NotePage({ id }: { id: string }) {
       content: n.content,
       status: n.status,
       due_at: n.due_at,
-      project_id: n.project_id,
+      project_id: n.project_id ?? null,
+      notebook_id: n.notebook_id ?? null,
       tags: n.tags ?? [],
       priority: n.priority ?? 3,
       urgent: (n.urgent ?? 0) as 0 | 1,
@@ -165,9 +184,7 @@ export default function NotePage({ id }: { id: string }) {
             href="/"
             className="underline"
             onClick={(e) => {
-              if (dirty && !confirm('You have unsaved changes. Leave without saving?')) {
-                e.preventDefault()
-              }
+              if (dirty && !confirm('You have unsaved changes. Leave without saving?')) e.preventDefault()
             }}
           >
             ← Back
@@ -181,9 +198,7 @@ export default function NotePage({ id }: { id: string }) {
         </div>
 
         {error ? (
-          <div className="mt-4 border border-red-300 bg-red-50 text-red-800 rounded p-3 text-sm">
-            {error}
-          </div>
+          <div className="mt-4 border border-red-300 bg-red-50 text-red-800 rounded p-3 text-sm">{error}</div>
         ) : null}
 
         <div className="mt-4 border rounded p-4">
@@ -212,6 +227,24 @@ export default function NotePage({ id }: { id: string }) {
               <option value="open">open</option>
               <option value="done">done</option>
               <option value="archived">archived</option>
+            </select>
+
+            <label className="text-xs opacity-70">Notebook</label>
+            <select
+              className="border rounded px-3 py-2"
+              value={effective.notebook_id ?? 'none'}
+              onChange={(e) => {
+                const v = e.target.value
+                setDraft((d) => ({ ...d, notebook_id: v === 'none' ? null : v }))
+                setDirty(true)
+              }}
+            >
+              <option value="none">No notebook</option>
+              {notebooks.map((nb) => (
+                <option key={nb.id} value={nb.id}>
+                  {nb.name}
+                </option>
+              ))}
             </select>
 
             <label className="text-xs opacity-70">Priority</label>
@@ -259,18 +292,10 @@ export default function NotePage({ id }: { id: string }) {
             )}
 
             <div className="ml-auto flex gap-2">
-              <button
-                className="border rounded px-3 py-2 disabled:opacity-50"
-                disabled={!dirty || saving}
-                onClick={saveDraft}
-              >
+              <button className="border rounded px-3 py-2 disabled:opacity-50" disabled={!dirty || saving} onClick={saveDraft}>
                 Save
               </button>
-              <button
-                className="border rounded px-3 py-2 disabled:opacity-50"
-                disabled={!dirty || saving}
-                onClick={cancelDraft}
-              >
+              <button className="border rounded px-3 py-2 disabled:opacity-50" disabled={!dirty || saving} onClick={cancelDraft}>
                 Cancel
               </button>
               <button className="border rounded px-3 py-2" onClick={onDelete}>
@@ -368,11 +393,7 @@ export default function NotePage({ id }: { id: string }) {
                     </div>
                   </div>
 
-                  <a
-                    className="ml-auto underline text-sm"
-                    download={f.filename}
-                    href={`data:${f.mime};base64,${f.data_base64}`}
-                  >
+                  <a className="ml-auto underline text-sm" download={f.filename} href={`data:${f.mime};base64,${f.data_base64}`}>
                     download
                   </a>
 

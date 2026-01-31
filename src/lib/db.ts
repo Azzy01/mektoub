@@ -77,6 +77,23 @@ async function migrate(db: PGlite) {
       ALTER TABLE notes ADD COLUMN IF NOT EXISTS urgent INTEGER NOT NULL DEFAULT 0;
     `)
 
+    // Notebooks table
+    await db.exec(`
+    CREATE TABLE IF NOT EXISTS notebooks (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_notebooks_name ON notebooks(name);
+    `)
+
+    // notebook_id on notes
+    await db.exec(`
+    ALTER TABLE notes ADD COLUMN IF NOT EXISTS notebook_id TEXT;
+    CREATE INDEX IF NOT EXISTS idx_notes_notebook_id ON notes(notebook_id);
+    `)
+
 
 
 }
