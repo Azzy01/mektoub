@@ -1,70 +1,20 @@
 'use client'
 
-// src/lib/repo/notes.ts
-
 import { v4 as uuid } from 'uuid'
-import { getDb } from '../db'
-import type { Note, NoteStatus, NoteType } from '../types'
-import { parseTags, stringifyTags } from './tags'
+import { getDb } from '../../db'
+import type { Note, NoteType } from '../../types'
+import { stringifyTags } from '../tags'
+import type { ListNotesParams } from './types'
+import { buildListNotesWhere } from './queries'
+import { mapNoteRow } from './mapper'
 
 function nowIso() {
   return new Date().toISOString()
 }
 
-export async function listNotes(params?: {
-  type?: NoteType | 'all'
-  q?: string
-  projectId?: string | 'all' | 'none'
-  notebookId?: string | 'all' | 'none'
-  status?: NoteStatus | 'all'
-  
-}): Promise<Note[]> {
+export async function listNotes(params?: ListNotesParams): Promise<Note[]> {
   const db = await getDb()
-  const type = params?.type ?? 'all'
-  const q = (params?.q ?? '').trim()
-  const projectId = params?.projectId ?? 'all'
-  const status = params?.status ?? 'all'
-  const notebookId = params?.notebookId ?? 'all'
-
-
-  const where: string[] = []
-  const values: any[] = []
-
-  if (type !== 'all') {
-    values.push(type)
-    where.push(`type = $${values.length}`)
-  }
-
-  if (status !== 'all') {
-    values.push(status)
-    where.push(`status = $${values.length}`)
-  }
-
-  if (projectId !== 'all') {
-    if (projectId === 'none') {
-      where.push(`project_id IS NULL`)
-    } else {
-      values.push(projectId)
-      where.push(`project_id = $${values.length}`)
-    }
-  }
-
-  if (notebookId !== 'all') {
-    if (notebookId === 'none') {
-      where.push(`notebook_id IS NULL`)
-    } else {
-      values.push(notebookId)
-      where.push(`notebook_id = $${values.length}`)
-    }
-  }
-  
-
-  if (q) {
-    values.push(`%${q.toLowerCase()}%`)
-    where.push(`(LOWER(title) LIKE $${values.length} OR LOWER(content) LIKE $${values.length})`)
-  }
-
-  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
+  const { whereSql, values } = buildListNotesWhere(params)
 
   const res = await db.query(
     `
@@ -76,7 +26,7 @@ export async function listNotes(params?: {
     values
   )
 
-  return (res.rows as any[]).map((r) => ({ ...r, tags: parseTags(r.tags) })) as Note[]
+  return (res.rows as any[]).map(mapNoteRow) as Note[]
 }
 
 export async function getNote(id: string): Promise<Note | null> {
@@ -84,7 +34,7 @@ export async function getNote(id: string): Promise<Note | null> {
   const res = await db.query(`SELECT * FROM notes WHERE id = $1 LIMIT 1;`, [id])
   const row = res.rows[0] as any
   if (!row) return null
-  return { ...row, tags: parseTags(row.tags) } as Note
+  return mapNoteRow(row)
 }
 
 export async function createNote(input: {
@@ -135,14 +85,14 @@ export async function createNote(input: {
   return id
 }
 
-
 export async function updateNote(
   id: string,
-  patch: Partial<Pick<Note, 'title' | 'content' | 'status' | 'due_at' | 'project_id' | 'tags'>>
+  patch: Partial<
+    Pick<Note, 'title' | 'content' | 'status' | 'due_at' | 'project_id' | 'notebook_id' | 'tags' | 'pinned' | 'priority' | 'urgent'>
+  >
 ): Promise<void> {
   const db = await getDb()
 
-  // normalize tags to TEXT JSON
   const normalized: any = { ...patch }
   if ('tags' in normalized) normalized.tags = stringifyTags(normalized.tags)
 
@@ -151,7 +101,6 @@ export async function updateNote(
 
   const allowed = ['title','content','status','due_at','project_id','notebook_id','tags','pinned','priority','urgent'] as const
 
-
   for (const key of allowed) {
     if (key in normalized) {
       values.push(normalized[key])
@@ -159,7 +108,6 @@ export async function updateNote(
     }
   }
 
-  // Always bump updated_at
   values.push(nowIso())
   fields.push(`updated_at = $${values.length}`)
 
@@ -174,11 +122,7 @@ export async function deleteNote(id: string): Promise<void> {
   await db.query(`DELETE FROM notes WHERE id = $1;`, [id])
 }
 
-
 export async function setPinned(id: string, pinned: 0 | 1): Promise<void> {
   const db = await getDb()
-  await db.query(
-    `UPDATE notes SET pinned = $1, updated_at = $2 WHERE id = $3;`,
-    [pinned, nowIso(), id]
-  )
+  await db.query(`UPDATE notes SET pinned = $1, updated_at = $2 WHERE id = $3;`, [pinned, nowIso(), id])
 }
