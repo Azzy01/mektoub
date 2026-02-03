@@ -8,6 +8,7 @@ import NoteHeader from './NoteHeader'
 import NoteEditor from './NoteEditor'
 import NoteListSection from './NoteListSection'
 import NoteFilesSection from './NoteFilesSection'
+import ProjectTreeSection from '../project/ProjectTreeSection'
 
 type NotePatch = Partial<
   Pick<Note, 'title' | 'content' | 'status' | 'due_at' | 'project_id' | 'tags' | 'priority' | 'urgent'>
@@ -151,6 +152,9 @@ export default function NotePage({ id }: { id: string }) {
           onCancel={cancelDraft}
           onDelete={onDelete}
         />
+
+        {/* ✅ Project-only section */}
+        {n.type === 'project' && <ProjectTreeSection projectId={n.id} />}
 
         {n.type === 'list' && <NoteListSection noteId={n.id} items={items} reload={load} />}
         {n.type === 'file' && <NoteFilesSection noteId={n.id} files={files} reload={load} />}

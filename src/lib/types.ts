@@ -45,3 +45,24 @@ export type Notebook = {
   name: string
   created_at: string
 }
+
+
+export type ProjectNodeKind = 'group' | 'task'
+
+export type ProjectNodeRow = {
+  id: string
+  project_id: string
+  parent_id: string | null
+  kind: ProjectNodeKind
+  title: string
+  note_id: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export type ProjectTaskNode = ProjectNodeRow & {
+  note: Note // joined task note
+}
+
+export type ProjectNode = ProjectNodeRow | ProjectTaskNode

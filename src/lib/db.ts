@@ -94,6 +94,26 @@ async function migrate(db: PGlite) {
     CREATE INDEX IF NOT EXISTS idx_notes_notebook_id ON notes(notebook_id);
     `)
 
-
+    
+    await db.exec(`
+    CREATE TABLE IF NOT EXISTS project_nodes (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,        -- notes.id of the project
+      parent_id TEXT,                  -- project_nodes.id (null => root-level under project)
+      kind TEXT NOT NULL,              -- 'group' | 'task'
+      title TEXT NOT NULL DEFAULT '',  -- used for groups (tasks can keep empty)
+      note_id TEXT,                    -- notes.id for task nodes (null for groups)
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  
+    CREATE INDEX IF NOT EXISTS idx_project_nodes_project_id ON project_nodes(project_id);
+    CREATE INDEX IF NOT EXISTS idx_project_nodes_parent_id ON project_nodes(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_project_nodes_sort_order ON project_nodes(project_id, parent_id, sort_order);
+  `);
+  
 
 }
+
+
