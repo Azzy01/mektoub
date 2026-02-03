@@ -2,13 +2,24 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { Note, ProjectNodeRow } from '../../lib/types'
-import { createProjectGroup, createTaskInProject, deleteProjectNode, getProjectTree, renameProjectGroup } from '../../lib/repo'
+import {
+  createProjectGroup,
+  createTaskInProject,
+  deleteProjectNode,
+  getProjectTree,
+  renameProjectGroup,
+} from '../../lib/repo'
+import CreateNodeModal, { CreateKind } from './CreateNodeModal'
 
 type TreeItem =
-  | { kind: 'group'; node: ProjectNodeRow; level: number }
+  | { kind: 'group'; node: ProjectNodeRow; level: number; hasChildren: boolean }
   | { kind: 'task'; node: ProjectNodeRow; level: number; note: Note }
 
-function buildTree(nodes: ProjectNodeRow[], notesById: Record<string, Note>) {
+function buildTree(
+  nodes: ProjectNodeRow[],
+  notesById: Record<string, Note>,
+  expanded: Set<string>
+) {
   const byParent = new Map<string, ProjectNodeRow[]>()
   for (const n of nodes) {
     const key = n.parent_id ?? '__root__'
@@ -17,7 +28,6 @@ function buildTree(nodes: ProjectNodeRow[], notesById: Record<string, Note>) {
     byParent.set(key, arr)
   }
 
-  // sort by sort_order then created_at
   for (const [k, arr] of byParent.entries()) {
     arr.sort((a, b) => (a.sort_order - b.sort_order) || a.created_at.localeCompare(b.created_at))
     byParent.set(k, arr)
@@ -29,13 +39,20 @@ function buildTree(nodes: ProjectNodeRow[], notesById: Record<string, Note>) {
     const arr = byParent.get(parentKey) ?? []
     for (const node of arr) {
       if (node.kind === 'group') {
-        out.push({ kind: 'group', node, level })
-        walk(node.id, level + 1)
+        const children = byParent.get(node.id) ?? []
+        const hasChildren = children.length > 0
+        out.push({ kind: 'group', node, level, hasChildren })
+
+        // Only walk children if expanded
+        if (expanded.has(node.id)) {
+          walk(node.id, level + 1)
+        }
       } else {
         const noteId = node.note_id ?? ''
         const note = notesById[noteId]
-        if (note) out.push({ kind: 'task', node, level, note })
-        else out.push({ kind: 'task', node, level, note: { id: noteId, type: 'task', title: '(Missing task)', content: '', status: 'open', due_at: null, project_id: null, notebook_id: null, tags: [], pinned: 0, priority: 3, urgent: 0, created_at: '', updated_at: '' } as any })
+        if (note) {
+          out.push({ kind: 'task', node, level, note })
+        }
       }
     }
   }
@@ -49,11 +66,29 @@ export default function ProjectTreeSection(props: { projectId: string }) {
   const [taskNotesById, setTaskNotesById] = useState<Record<string, Note>>({})
   const [loading, setLoading] = useState(true)
 
+  // expanded groups in UI (Set of node ids)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  // modal state
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalKind, setModalKind] = useState<CreateKind>('group')
+  const [modalParentId, setModalParentId] = useState<string | null>(null)
+  const [modalParentLabel, setModalParentLabel] = useState<string>('Project root')
+
   async function reload() {
     setLoading(true)
     const res = await getProjectTree(props.projectId)
     setNodes(res.nodes)
     setTaskNotesById(res.taskNotesById)
+
+    // default expand all groups on first load
+    setExpanded((prev) => {
+      if (prev.size > 0) return prev
+      const s = new Set<string>()
+      for (const n of res.nodes) if (n.kind === 'group') s.add(n.id)
+      return s
+    })
+
     setLoading(false)
   }
 
@@ -62,28 +97,54 @@ export default function ProjectTreeSection(props: { projectId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.projectId])
 
-  const items = useMemo(() => buildTree(nodes, taskNotesById), [nodes, taskNotesById])
+  const items = useMemo(() => buildTree(nodes, taskNotesById, expanded), [nodes, taskNotesById, expanded])
 
-  async function addRootGroup() {
-    const title = prompt('Group name?')
-    if (!title) return
-    await createProjectGroup({ projectId: props.projectId, parentId: null, title })
-    await reload()
+  function openCreate(kind: CreateKind, parentId: string | null, parentLabel: string) {
+    setModalKind(kind)
+    setModalParentId(parentId)
+    setModalParentLabel(parentLabel)
+    setModalOpen(true)
   }
 
-  async function addChildGroup(parentId: string) {
-    const title = prompt('Group name?')
-    if (!title) return
-    await createProjectGroup({ projectId: props.projectId, parentId, title })
-    await reload()
-  }
+  async function handleCreate(title: string) {
+    if (modalKind === 'group') {
+      const id = await createProjectGroup({ projectId: props.projectId, parentId: modalParentId, title })
+      // auto-expand the new group parent chain
+      if (modalParentId) {
+        setExpanded((prev) => new Set(prev).add(modalParentId))
+      }
+      // expand new group itself
+      setExpanded((prev) => new Set(prev).add(id))
+      await reload()
+      return
+    }
 
-  async function addTask(parentId: string | null) {
-    const title = prompt('Task title?')
-    if (!title) return
-    const { noteId } = await createTaskInProject({ projectId: props.projectId, parentId, title })
-    // open task immediately
+    // task
+    const { noteId } = await createTaskInProject({
+      projectId: props.projectId,
+      parentId: modalParentId,
+      title,
+    })
     window.location.href = `/note/${noteId}`
+  }
+
+  function toggleExpand(groupId: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(groupId)) next.delete(groupId)
+      else next.add(groupId)
+      return next
+    })
+  }
+
+  function expandAll() {
+    const s = new Set<string>()
+    for (const n of nodes) if (n.kind === 'group') s.add(n.id)
+    setExpanded(s)
+  }
+
+  function collapseAll() {
+    setExpanded(new Set())
   }
 
   if (loading) return <div className="mt-6 opacity-70">Loading project structure…</div>
@@ -92,10 +153,24 @@ export default function ProjectTreeSection(props: { projectId: string }) {
     <div className="mt-6 border rounded p-4">
       <div className="flex items-center gap-2">
         <h2 className="font-semibold">Project structure</h2>
-        <button className="ml-auto border rounded px-2 py-1 text-sm" onClick={addRootGroup}>
+
+        <button className="ml-auto border rounded px-2 py-1 text-sm hover:bg-white/10" onClick={expandAll}>
+          Expand all
+        </button>
+        <button className="border rounded px-2 py-1 text-sm hover:bg-white/10" onClick={collapseAll}>
+          Collapse all
+        </button>
+
+        <button
+          className="border rounded px-2 py-1 text-sm hover:bg-white/10"
+          onClick={() => openCreate('group', null, 'Project root')}
+        >
           + Group
         </button>
-        <button className="border rounded px-2 py-1 text-sm" onClick={() => addTask(null)}>
+        <button
+          className="border rounded px-2 py-1 text-sm hover:bg-white/10"
+          onClick={() => openCreate('task', null, 'Project root')}
+        >
           + Task
         </button>
       </div>
@@ -105,23 +180,38 @@ export default function ProjectTreeSection(props: { projectId: string }) {
       ) : (
         <div className="mt-3 space-y-1">
           {items.map((it) => {
-            const pad = 12 + it.level * 18
+            const pad = 10 + it.level * 18
+
             if (it.kind === 'group') {
+              const isOpen = expanded.has(it.node.id)
+
               return (
-                <div key={it.node.id} className="flex items-center gap-2 border rounded px-2 py-2" style={{ paddingLeft: pad }}>
+                <div
+                  key={it.node.id}
+                  className="flex items-center gap-2 border rounded px-2 py-2"
+                  style={{ paddingLeft: pad }}
+                >
+                  <button
+                    className="w-7 h-7 border rounded hover:bg-white/10 flex items-center justify-center"
+                    onClick={() => toggleExpand(it.node.id)}
+                    title={isOpen ? 'Collapse' : 'Expand'}
+                  >
+                    {it.hasChildren ? (isOpen ? '▼' : '▶') : '•'}
+                  </button>
+
                   <div className="font-semibold truncate">📁 {it.node.title || '(Group)'}</div>
 
                   <div className="ml-auto flex gap-2">
                     <button
                       className="border rounded px-2 py-1 text-sm hover:bg-white/10"
-                      onClick={async () => addChildGroup(it.node.id)}
+                      onClick={() => openCreate('group', it.node.id, it.node.title || '(Group)')}
                       title="Add subgroup"
                     >
                       + Group
                     </button>
                     <button
                       className="border rounded px-2 py-1 text-sm hover:bg-white/10"
-                      onClick={async () => addTask(it.node.id)}
+                      onClick={() => openCreate('task', it.node.id, it.node.title || '(Group)')}
                       title="Add task"
                     >
                       + Task
@@ -154,12 +244,12 @@ export default function ProjectTreeSection(props: { projectId: string }) {
               )
             }
 
-            // task
+            // task row
             return (
               <button
                 key={it.node.id}
                 className="w-full text-left flex items-center gap-2 border rounded px-2 py-2 hover:bg-white/10"
-                style={{ paddingLeft: pad }}
+                style={{ paddingLeft: pad + 28 }}
                 onClick={() => (window.location.href = `/note/${it.note.id}`)}
                 title="Open task"
               >
@@ -172,6 +262,14 @@ export default function ProjectTreeSection(props: { projectId: string }) {
           })}
         </div>
       )}
+
+      <CreateNodeModal
+        open={modalOpen}
+        kind={modalKind}
+        parentLabel={modalParentLabel}
+        onClose={() => setModalOpen(false)}
+        onCreate={handleCreate}
+      />
     </div>
   )
 }
