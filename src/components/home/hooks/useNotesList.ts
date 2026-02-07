@@ -17,7 +17,7 @@ export function useNotesList(notebookId: string | 'all' | 'none') {
 
   async function refreshNotes() {
     setLoading(true)
-    const res = await listNotes({ q, type, status, notebookId })
+    const res = await listNotes({ q, type, status, notebookId, hideProjectTasks: true })
 
     const afterUrgent = urgentOnly ? res.filter((n) => n.urgent === 1) : res
     const afterTag = tagFilter ? afterUrgent.filter((n) => (n.tags ?? []).includes(tagFilter)) : afterUrgent

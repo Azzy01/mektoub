@@ -43,6 +43,10 @@ export function buildListNotesWhere(params?: ListNotesParams) {
     where.push(`(LOWER(title) LIKE $${values.length} OR LOWER(content) LIKE $${values.length})`)
   }
 
+  if (params?.hideProjectTasks) {
+    where.push(`NOT (type = 'task' AND project_id IS NOT NULL)`)
+  }
+
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
 
   return { whereSql, values }

@@ -87,9 +87,15 @@ export async function createNote(input: {
 
 export async function updateNote(
   id: string,
+
   patch: Partial<
-    Pick<Note, 'title' | 'content' | 'status' | 'due_at' | 'project_id' | 'notebook_id' | 'tags' | 'pinned' | 'priority' | 'urgent'>
+  Pick<Note,
+    'title' | 'content' | 'status' | 'due_at' |
+    'project_id' | 'notebook_id' | 'tags' |
+    'pinned' | 'priority' | 'urgent'
   >
+>
+
 ): Promise<void> {
   const db = await getDb()
 

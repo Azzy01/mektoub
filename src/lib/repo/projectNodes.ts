@@ -217,3 +217,22 @@ export async function deleteProjectNode(nodeId: string): Promise<void> {
   const placeholders = ids.map((_, i) => `$${i + 1}`).join(',')
   await db.query(`DELETE FROM project_nodes WHERE id IN (${placeholders});`, ids)
 }
+
+
+export async function deleteTaskNodeAndNote(nodeId: string): Promise<void> {
+  const db = await getDb()
+
+  // find note id first
+  const res = await db.query(`SELECT note_id FROM project_nodes WHERE id = $1 AND kind='task' LIMIT 1;`, [nodeId])
+  const noteId = (res.rows?.[0] as any)?.note_id as string | undefined
+
+  // delete node
+  await db.query(`DELETE FROM project_nodes WHERE id = $1;`, [nodeId])
+
+  // delete note (safe: only if exists)
+  if (noteId) {
+    await db.query(`DELETE FROM files WHERE note_id = $1;`, [noteId])
+    await db.query(`DELETE FROM list_items WHERE note_id = $1;`, [noteId])
+    await db.query(`DELETE FROM notes WHERE id = $1;`, [noteId])
+  }
+}

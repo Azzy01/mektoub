@@ -9,6 +9,8 @@ import SidebarNotebooks from './SidebarNotebooks'
 import TagChips from './TagChips'
 import { useNotebooks } from './hooks/useNotebooks'
 import { useNotesList } from './hooks/useNotesList'
+import ProjectsSection from './ProjectsSection'
+
 
 export default function Home() {
   const nb = useNotebooks()
@@ -52,6 +54,7 @@ export default function Home() {
         <main className="space-y-4">
           <HomeHeader onQuick={onQuick} onCreate={onCreate} />
 
+          
           <FiltersBar
             q={nl.q}
             setQ={nl.setQ}
@@ -70,6 +73,8 @@ export default function Home() {
             onClear={() => nl.setTagFilter(null)}
           />
 
+          <ProjectsSection />
+
           <NotesList
             loading={nl.loading}
             notes={nl.notes}
@@ -79,6 +84,8 @@ export default function Home() {
             }}
           />
         </main>
+
+
       </div>
     </div>
   )

@@ -10,6 +10,9 @@ import {
   renameProjectGroup,
 } from '../../lib/repo'
 import CreateNodeModal, { CreateKind } from './CreateNodeModal'
+import TaskModal from './TaskModal'
+import { deleteTaskNodeAndNote } from '../../lib/repo'
+
 
 type TreeItem =
   | { kind: 'group'; node: ProjectNodeRow; level: number; hasChildren: boolean }
@@ -75,6 +78,11 @@ export default function ProjectTreeSection(props: { projectId: string }) {
   const [modalParentId, setModalParentId] = useState<string | null>(null)
   const [modalParentLabel, setModalParentLabel] = useState<string>('Project root')
 
+  const [taskModalOpen, setTaskModalOpen] = useState(false)
+  const [taskModalNoteId, setTaskModalNoteId] = useState<string | null>(null)
+  const [taskModalNodeId, setTaskModalNodeId] = useState<string | null>(null)
+
+
   async function reload() {
     setLoading(true)
     const res = await getProjectTree(props.projectId)
@@ -120,12 +128,15 @@ export default function ProjectTreeSection(props: { projectId: string }) {
     }
 
     // task
-    const { noteId } = await createTaskInProject({
+    const { noteId, nodeId } = await createTaskInProject({
       projectId: props.projectId,
       parentId: modalParentId,
       title,
     })
-    window.location.href = `/note/${noteId}`
+    await reload()
+    setTaskModalNoteId(noteId)
+    setTaskModalNodeId(nodeId)
+    setTaskModalOpen(true)
   }
 
   function toggleExpand(groupId: string) {
@@ -250,7 +261,12 @@ export default function ProjectTreeSection(props: { projectId: string }) {
                 key={it.node.id}
                 className="w-full text-left flex items-center gap-2 border rounded px-2 py-2 hover:bg-white/10"
                 style={{ paddingLeft: pad + 28 }}
-                onClick={() => (window.location.href = `/note/${it.note.id}`)}
+                onClick={() => {
+                  setTaskModalNoteId(it.note.id)
+                  setTaskModalNodeId(it.node.id)
+                  setTaskModalOpen(true)
+                }}
+                
                 title="Open task"
               >
                 <span className="truncate">
@@ -270,6 +286,23 @@ export default function ProjectTreeSection(props: { projectId: string }) {
         onClose={() => setModalOpen(false)}
         onCreate={handleCreate}
       />
+
+      <TaskModal
+        open={taskModalOpen}
+        noteId={taskModalNoteId}
+        onClose={() => setTaskModalOpen(false)}
+        onSaved={reload}
+        onDelete={
+          taskModalNodeId
+            ? async () => {
+                // delete node + note
+                await deleteTaskNodeAndNote(taskModalNodeId)
+              }
+            : undefined
+        }
+      />
+        
+
     </div>
   )
 }
