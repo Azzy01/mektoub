@@ -66,3 +66,41 @@ export type ProjectTaskNode = ProjectNodeRow & {
 }
 
 export type ProjectNode = ProjectNodeRow | ProjectTaskNode
+
+export type BlogCategory = {
+  id: string
+  name: string
+  created_at: string
+}
+
+export type BlogPostStatus = 'draft' | 'published'
+
+export type BlogPostRow = {
+  id: string
+  title: string
+  slug: string
+  category_id: string
+  excerpt: string
+  content: string
+  cover_file_id: string | null
+  status: BlogPostStatus
+  created_at: string
+  updated_at: string
+  published_at: string | null
+}
+
+export type BlogFile = {
+  id: string
+  post_id: string
+  filename: string
+  mime: string
+  size: number
+  data_base64: string
+  role: 'cover' | 'inline'
+  created_at: string
+}
+
+export type BlogPost = BlogPostRow & {
+  category_name: string
+  cover_file?: BlogFile | null
+}

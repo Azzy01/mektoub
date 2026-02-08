@@ -1,7 +1,8 @@
 'use client'
 
 import type { NoteType } from '../../lib/types'
-import { createNote, setPinned } from '../../lib/repo'
+import { deleteNote, setPinned, updateNote } from '../../lib/repo'
+import { useRouter } from 'next/navigation'
 import FiltersBar from './FiltersBar'
 import HomeHeader from './HomeHeader'
 import NotesList from './NotesList'
@@ -14,28 +15,24 @@ export default function Home() {
   // but sidebar UI must NOT be rendered here.
   const nb = useNotebooks()
   const nl = useNotesList(nb.notebookId, { excludeTypes: ['project'] })
+  const router = useRouter()
 
 
   async function onCreate(t: NoteType) {
-    const id = await createNote({
-      type: t,
-      title: 'Title',
-      content: '',
-      tags: [],
-      notebook_id: nb.notebookId !== 'all' && nb.notebookId !== 'none' ? nb.notebookId : null,
-    })
-    window.location.href = `/note/${id}`
+    const notebookId = nb.notebookId !== 'all' && nb.notebookId !== 'none' ? nb.notebookId : null
+    const q = new URLSearchParams()
+    q.set('type', t)
+    if (notebookId) q.set('nb', notebookId)
+    router.push(`/note/new?${q.toString()}`)
   }
 
   async function onQuick() {
-    const id = await createNote({
-      type: 'idea',
-      title: 'Quick note',
-      content: '',
-      tags: ['quick'],
-      notebook_id: nb.notebookId !== 'all' && nb.notebookId !== 'none' ? nb.notebookId : null,
-    })
-    window.location.href = `/note/${id}`
+    const notebookId = nb.notebookId !== 'all' && nb.notebookId !== 'none' ? nb.notebookId : null
+    const q = new URLSearchParams()
+    q.set('type', 'idea')
+    q.set('quick', '1')
+    if (notebookId) q.set('nb', notebookId)
+    router.push(`/note/new?${q.toString()}`)
   }
 
   return (
@@ -66,6 +63,14 @@ export default function Home() {
         notes={nl.notes}
         onTogglePin={async (id, nextPinned) => {
           await setPinned(id, nextPinned)
+          await nl.refreshNotes()
+        }}
+        onDelete={async (id) => {
+          await deleteNote(id)
+          await nl.refreshNotes()
+        }}
+        onStatusChange={async (id, nextStatus) => {
+          await updateNote(id, { status: nextStatus })
           await nl.refreshNotes()
         }}
       />

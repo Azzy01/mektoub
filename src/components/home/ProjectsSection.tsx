@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import type { Note, ProjectNodeRow } from '../../lib/types'
-import { listNotes, getProjectTree } from '../../lib/repo'
+import { listNotes, getProjectTree, updateNote } from '../../lib/repo'
 
 type ProjectBundle = {
   project: Note
@@ -24,6 +25,8 @@ export default function ProjectsSection() {
   const [projects, setProjects] = useState<ProjectBundle[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  const search = useSearchParams()
+  const statusFilter = search.get('status') || 'open'
 
   async function load() {
     setLoading(true)
@@ -47,8 +50,11 @@ export default function ProjectsSection() {
   }, [])
 
   const sorted = useMemo(() => {
-    return [...projects].sort((a, b) => b.project.updated_at.localeCompare(a.project.updated_at))
-  }, [projects])
+    const filtered = statusFilter === 'all'
+      ? projects
+      : projects.filter((p) => p.project.status === statusFilter)
+    return [...filtered].sort((a, b) => b.project.updated_at.localeCompare(a.project.updated_at))
+  }, [projects, statusFilter])
 
   if (loading) return <div className="border rounded p-4 opacity-70">Loading projects…</div>
 
@@ -62,6 +68,11 @@ export default function ProjectsSection() {
         {sorted.map((b) => {
           const isOpen = expanded.has(b.project.id)
           const stats = countTasks(b)
+          const preview =
+            b.project.content
+              .split('\n')
+              .map((l) => l.trim())
+              .find((l) => l.length > 0) || ''
 
           return (
             <div key={b.project.id} className="border rounded">
@@ -82,17 +93,48 @@ export default function ProjectsSection() {
                   <div className="text-xs opacity-70">
                     {stats.done}/{stats.total} done
                   </div>
+                  {preview && <div className="text-xs opacity-60 truncate mt-1">{preview}</div>}
                 </div>
 
-                <div className="ml-auto text-sm underline opacity-80 hover:opacity-100"
-                     onClick={(e) => { e.stopPropagation(); window.location.href = `/note/${b.project.id}` }}>
-                  open
+                <div className="ml-auto flex items-center gap-2">
+                  <select
+                    className="border rounded px-2 py-1 text-xs bg-transparent"
+                    value={b.project.status}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onChange={async (e) => {
+                      e.stopPropagation()
+                      await updateNote(b.project.id, { status: e.target.value as Note['status'] })
+                      await load()
+                    }}
+                  >
+                    <option value="open">open</option>
+                    <option value="done">done</option>
+                    <option value="archived">archived</option>
+                  </select>
+                  <div
+                    className="text-sm underline opacity-80 hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      window.location.href = `/note/${b.project.id}`
+                    }}
+                  >
+                    open
+                  </div>
                 </div>
               </button>
 
               {isOpen ? (
                 <div className="px-3 pb-3">
-                  <ProjectTreeInline projectId={b.project.id} nodes={b.nodes} taskNotesById={b.taskNotesById} />
+                  <ProjectTreeInline
+                    projectId={b.project.id}
+                    nodes={b.nodes}
+                    taskNotesById={b.taskNotesById}
+                    onStatusChange={async (id, nextStatus) => {
+                      await updateNote(id, { status: nextStatus })
+                      await load()
+                    }}
+                  />
                 </div>
               ) : null}
             </div>
@@ -107,6 +149,7 @@ function ProjectTreeInline(props: {
   projectId: string
   nodes: ProjectNodeRow[]
   taskNotesById: Record<string, Note>
+  onStatusChange: (id: string, nextStatus: Note['status']) => Promise<void>
 }) {
   // minimal inline view: show only tasks grouped by group titles (1 level)
   const byParent = new Map<string, ProjectNodeRow[]>()
@@ -138,15 +181,31 @@ function ProjectTreeInline(props: {
           const note = n.note_id ? props.taskNotesById[n.note_id] : null
           if (!note) return null
           return (
-            <button
+            <div
               key={n.id}
               style={{ paddingLeft: pad }}
-              className="w-full text-left text-sm border rounded px-2 py-2 hover:bg-white/10"
-              onClick={() => (window.location.href = `/note/${note.id}`)}
+              className="w-full text-sm border rounded px-2 py-2 hover:bg-white/10 flex items-center gap-2"
             >
-              ✅ {note.title}
-              {note.status !== 'open' ? <span className="opacity-70"> ({note.status})</span> : null}
-            </button>
+              <div className="flex-1 min-w-0">
+                <button
+                  className="text-left w-full truncate"
+                  onClick={() => (window.location.href = `/note/${note.id}`)}
+                >
+                  {note.status === 'done' ? '✅' : '▫️'} {note.title}
+                </button>
+              </div>
+              <button
+                className={`border rounded px-2 py-1 text-xs ${note.status === 'done' ? 'bg-white/15 border-white/30' : 'hover:bg-white/10'}`}
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  const next = note.status === 'done' ? 'open' : 'done'
+                  await props.onStatusChange(note.id, next)
+                }}
+                title="Toggle done"
+              >
+                {note.status === 'done' ? 'Done' : 'Open'}
+              </button>
+            </div>
           )
         })}
       </div>

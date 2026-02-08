@@ -1,20 +1,28 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { normTags } from './utils'
 import type { FileRow, ListItem, Note, NoteStatus } from '../../lib/types'
-import { deleteNote, getNote, listFiles, listItems, updateNote } from '../../lib/repo'
+import { createNote, deleteNote, getNote, listFiles, listItems, updateNote } from '../../lib/repo'
 import NoteHeader from './NoteHeader'
 import NoteEditor from './NoteEditor'
 import NoteListSection from './NoteListSection'
 import NoteFilesSection from './NoteFilesSection'
 import ProjectTreeSection from '../project/ProjectTreeSection'
+import type { NoteType } from '../../lib/types'
 
 type NotePatch = Partial<
   Pick<Note, 'title' | 'content' | 'status' | 'due_at' | 'project_id' | 'tags' | 'priority' | 'urgent'>
 >
 
 export default function NotePage({ id }: { id: string }) {
+  const router = useRouter()
+  const search = useSearchParams()
+  const isNew = id === 'new'
+  const newType = (search.get('type') as NoteType) || 'idea'
+  const quick = search.get('quick') === '1'
+  const notebookId = search.get('nb')
   const [note, setNote] = useState<Note | null>(null)
   const [draft, setDraftState] = useState<NotePatch>({})
   const [items, setItems] = useState<ListItem[]>([])
@@ -48,6 +56,39 @@ export default function NotePage({ id }: { id: string }) {
   }, [draft, note])
 
   async function load() {
+    if (isNew) {
+      const dummy: Note = {
+        id: 'new',
+        type: newType,
+        title: quick ? 'Quick note' : '',
+        content: '',
+        status: 'open',
+        due_at: null,
+        project_id: null,
+        tags: quick ? ['quick'] : [],
+        pinned: 0,
+        priority: 3,
+        urgent: 0,
+        notebook_id: null,
+        created_at: '',
+        updated_at: '',
+      }
+      setNote(dummy)
+      setDraftState({
+        title: dummy.title,
+        content: dummy.content,
+        status: dummy.status,
+        due_at: dummy.due_at,
+        project_id: dummy.project_id,
+        tags: dummy.tags ?? [],
+      })
+      setDirty(true)
+      setError(null)
+      setItems([])
+      setFiles([])
+      return
+    }
+
     const n = await getNote(id)
     setNote(n)
 
@@ -101,9 +142,26 @@ export default function NotePage({ id }: { id: string }) {
         due_at: effective.due_at ?? null,
         tags: normTags(effective.tags),
       }
+      if (isNew) {
+        const newId = await createNote({
+          type: n.type,
+          title: patch.title || 'Title',
+          content: patch.content || '',
+          tags: patch.tags ?? [],
+          due_at: patch.due_at ?? null,
+          notebook_id: notebookId || null,
+        })
+        setDirty(false)
+        if (n.type === 'project') {
+          router.push('/projects')
+        } else {
+          router.push(`/note/${newId}`)
+        }
+        return
+      }
       await updateNote(n.id, patch)
       setDirty(false)
-      window.location.href = n.type === 'project' ? '/projects' : '/'
+      router.push(n.type === 'project' ? '/projects' : '/')
 
     } catch (e: any) {
       setError(e?.message ?? 'Failed to save')
@@ -113,6 +171,11 @@ export default function NotePage({ id }: { id: string }) {
   }
 
   function cancelDraft() {
+    if (isNew) {
+      if (!confirm('Discard this new note?')) return
+      router.push('/')
+      return
+    }
     setDraftState({
       title: n.title,
       content: n.content,
@@ -126,9 +189,14 @@ export default function NotePage({ id }: { id: string }) {
   }
 
   async function onDelete() {
+    if (isNew) {
+      if (!confirm('Discard this new note?')) return
+      router.push('/')
+      return
+    }
     if (!confirm('Delete this note?')) return
     await deleteNote(n.id)
-    window.location.href = n.type === 'project' ? '/projects' : '/'
+    router.push(n.type === 'project' ? '/projects' : '/')
 
   }
 
@@ -156,10 +224,10 @@ export default function NotePage({ id }: { id: string }) {
         />
 
         {/* ✅ Project-only section */}
-        {n.type === 'project' && <ProjectTreeSection projectId={n.id} />}
+        {!isNew && n.type === 'project' && <ProjectTreeSection projectId={n.id} />}
 
-        {n.type === 'list' && <NoteListSection noteId={n.id} items={items} reload={load} />}
-        {n.type === 'file' && <NoteFilesSection noteId={n.id} files={files} reload={load} />}
+        {!isNew && n.type === 'list' && <NoteListSection noteId={n.id} items={items} reload={load} />}
+        {!isNew && n.type === 'file' && <NoteFilesSection noteId={n.id} files={files} reload={load} />}
       </div>
     </div>
   )

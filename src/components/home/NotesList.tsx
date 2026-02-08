@@ -7,6 +7,8 @@ export default function NotesList(props: {
   loading: boolean
   notes: Note[]
   onTogglePin: (id: string, nextPinned: 0 | 1) => Promise<void>
+  onDelete: (id: string) => Promise<void>
+  onStatusChange: (id: string, nextStatus: Note['status']) => Promise<void>
 }) {
   if (props.loading) return <div className="opacity-70">Loading…</div>
   if (props.notes.length === 0) return <div className="opacity-70">No notes yet.</div>
@@ -14,7 +16,13 @@ export default function NotesList(props: {
   return (
     <div className="space-y-2">
       {props.notes.map((n) => (
-        <NoteCard key={n.id} note={n} onTogglePin={props.onTogglePin} />
+        <NoteCard
+          key={n.id}
+          note={n}
+          onTogglePin={props.onTogglePin}
+          onDelete={props.onDelete}
+          onStatusChange={props.onStatusChange}
+        />
       ))}
     </div>
   )

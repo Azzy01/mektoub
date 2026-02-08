@@ -113,7 +113,53 @@ async function migrate(db: PGlite) {
     CREATE INDEX IF NOT EXISTS idx_project_nodes_sort_order ON project_nodes(project_id, parent_id, sort_order);
   `);
   
+  // Blog tables
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS blog_categories (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_blog_categories_name ON blog_categories(name);
+  `)
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS blog_posts (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      category_id TEXT NOT NULL,
+      excerpt TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
+      cover_file_id TEXT,
+      status TEXT NOT NULL DEFAULT 'draft',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      published_at TEXT
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_blog_posts_slug ON blog_posts(slug);
+    CREATE INDEX IF NOT EXISTS idx_blog_posts_category_id ON blog_posts(category_id);
+    CREATE INDEX IF NOT EXISTS idx_blog_posts_status ON blog_posts(status);
+    CREATE INDEX IF NOT EXISTS idx_blog_posts_updated_at ON blog_posts(updated_at);
+  `)
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS blog_files (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      mime TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      data_base64 TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'inline', -- 'cover' | 'inline'
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_blog_files_post_id ON blog_files(post_id);
+    CREATE INDEX IF NOT EXISTS idx_blog_files_role ON blog_files(role);
+  `)
 
 }
-
 
