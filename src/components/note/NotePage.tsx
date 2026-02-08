@@ -103,7 +103,8 @@ export default function NotePage({ id }: { id: string }) {
       }
       await updateNote(n.id, patch)
       setDirty(false)
-      window.location.href = '/'
+      window.location.href = n.type === 'project' ? '/projects' : '/'
+
     } catch (e: any) {
       setError(e?.message ?? 'Failed to save')
     } finally {
@@ -127,7 +128,8 @@ export default function NotePage({ id }: { id: string }) {
   async function onDelete() {
     if (!confirm('Delete this note?')) return
     await deleteNote(n.id)
-    window.location.href = '/'
+    window.location.href = n.type === 'project' ? '/projects' : '/'
+
   }
 
   return (

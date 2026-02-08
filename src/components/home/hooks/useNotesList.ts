@@ -5,7 +5,11 @@ import type { Note, NoteStatus, NoteType } from '../../../lib/types'
 import { listNotes } from '../../../lib/repo'
 import { collectTopTags } from '../utils'
 
-export function useNotesList(notebookId: string | 'all' | 'none') {
+export function useNotesList(
+    notebookId: string | 'all' | 'none',
+    opts?: { excludeTypes?: NoteType[] }
+  ) {
+  
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -18,8 +22,11 @@ export function useNotesList(notebookId: string | 'all' | 'none') {
   async function refreshNotes() {
     setLoading(true)
     const res = await listNotes({ q, type, status, notebookId, hideProjectTasks: true })
+    const excluded = new Set(opts?.excludeTypes ?? [])
+    const res2 = excluded.size ? res.filter(n => !excluded.has(n.type as any)) : res
 
-    const afterUrgent = urgentOnly ? res.filter((n) => n.urgent === 1) : res
+
+    const afterUrgent = urgentOnly ? res.filter((n) => n.urgent === 1) : res2
     const afterTag = tagFilter ? afterUrgent.filter((n) => (n.tags ?? []).includes(tagFilter)) : afterUrgent
 
     setNotes(afterTag)

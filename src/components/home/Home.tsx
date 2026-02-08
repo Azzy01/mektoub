@@ -8,13 +8,13 @@ import NotesList from './NotesList'
 import TagChips from './TagChips'
 import { useNotebooks } from './hooks/useNotebooks'
 import { useNotesList } from './hooks/useNotesList'
-import ProjectsSection from './ProjectsSection'
 
 export default function Home() {
   // We keep notebooks hook ONLY for selected notebookId (filter),
   // but sidebar UI must NOT be rendered here.
   const nb = useNotebooks()
-  const nl = useNotesList(nb.notebookId)
+  const nl = useNotesList(nb.notebookId, { excludeTypes: ['project'] })
+
 
   async function onCreate(t: NoteType) {
     const id = await createNote({
@@ -60,8 +60,7 @@ export default function Home() {
         onClear={() => nl.setTagFilter(null)}
       />
 
-      <ProjectsSection />
-
+      
       <NotesList
         loading={nl.loading}
         notes={nl.notes}
