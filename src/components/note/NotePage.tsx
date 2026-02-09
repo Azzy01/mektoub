@@ -1,43 +1,43 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import TagsEditor from './TagsEditor'
-import AddItem from './AddItem'
-import { formatBytes, normTags, toLocalInput } from './utils'
-import type { FileRow, ListItem, Note, NoteStatus, NoteType } from '../../lib/types'
-import {
-  addItem,
-  attachFile,
-  deleteFile,
-  deleteItem,
-  deleteNote,
-  getNote,
-  listFiles,
-  listItems,
-  toggleItem,
-  updateNote,
-} from '../../lib/repo'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { normTags } from './utils'
+import type { FileRow, ListItem, Note, NoteStatus } from '../../lib/types'
+import { createNote, deleteNote, getNote, listFiles, listItems, updateNote } from '../../lib/repo'
+import { useAuth } from '../../lib/auth'
+import NoteHeader from './NoteHeader'
+import NoteEditor from './NoteEditor'
+import NoteListSection from './NoteListSection'
+import NoteFilesSection from './NoteFilesSection'
+import ProjectTreeSection from '../project/ProjectTreeSection'
+import type { NoteType } from '../../lib/types'
 
-const TYPE_LABEL: Record<NoteType, string> = {
-  idea: 'Idea',
-  project: 'Project',
-  task: 'Task',
-  list: 'List',
-  file: 'File note',
-}
-
-type NotePatch = Partial<Pick<Note, 'title' | 'content' | 'status' | 'due_at' | 'project_id' | 'tags'>>
-
+type NotePatch = Partial<
+  Pick<Note, 'title' | 'content' | 'status' | 'due_at' | 'project_id' | 'tags' | 'priority' | 'urgent' | 'is_private'>
+>
 
 export default function NotePage({ id }: { id: string }) {
+  const router = useRouter()
+  const search = useSearchParams()
+  const isNew = id === 'new'
+  const newType = (search.get('type') as NoteType) || 'idea'
+  const quick = search.get('quick') === '1'
+  const notebookId = search.get('nb')
+  const returnTo = search.get('from')
+  const { authed } = useAuth()
   const [note, setNote] = useState<Note | null>(null)
-  const [draft, setDraft] = useState<NotePatch>({})
+  const [projectTitle, setProjectTitle] = useState<string | null>(null)
+  const [draft, setDraftState] = useState<NotePatch>({})
   const [items, setItems] = useState<ListItem[]>([])
   const [files, setFiles] = useState<FileRow[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [dirty, setDirty] = useState(false) // ✅ inside component
+  const [dirty, setDirty] = useState(false)
+
+  const setDraft = (updater: (d: NotePatch) => NotePatch) => {
+    setDraftState((prev) => updater(prev))
+  }
 
   const effective = useMemo(() => {
     if (!note) {
@@ -47,6 +47,9 @@ export default function NotePage({ id }: { id: string }) {
         status: (draft.status ?? 'open') as NoteStatus,
         due_at: (draft.due_at ?? null) as string | null,
         tags: normTags(draft.tags),
+        is_private: (draft.is_private ?? 0) as 0 | 1,
+        priority: (draft.priority ?? 3) as number,
+        urgent: (draft.urgent ?? 0) as 0 | 1,
       }
     }
 
@@ -56,25 +59,81 @@ export default function NotePage({ id }: { id: string }) {
       status: (draft.status ?? note.status) as NoteStatus,
       due_at: (draft.due_at ?? note.due_at) as string | null,
       tags: normTags(draft.tags ?? note.tags),
+      is_private: (draft.is_private ?? note.is_private) as 0 | 1,
+      start_at: note.start_at ?? null,
+      completed_at: note.completed_at ?? null,
+      priority: (draft.priority ?? note.priority ?? 3) as number,
+      urgent: (draft.urgent ?? note.urgent ?? 0) as 0 | 1,
     }
   }, [draft, note])
 
+  function returnPath() {
+    if (!returnTo) return null
+    if (returnTo === 'main' || returnTo === 'home') return '/'
+    return `/${returnTo}`
+  }
+
   async function load() {
+    if (isNew) {
+      const dummy: Note = {
+        id: 'new',
+        type: newType,
+        title: quick ? 'Quick note' : '',
+        content: '',
+        status: 'open',
+        due_at: null,
+        project_id: null,
+        tags: quick ? ['quick'] : [],
+        pinned: 0,
+        priority: 3,
+        urgent: 0,
+        is_private: 0,
+        start_at: newType === 'task' ? new Date().toISOString() : null,
+        completed_at: null,
+        notebook_id: null,
+        created_at: '',
+        updated_at: '',
+      }
+      setNote(dummy)
+      setDraftState({
+        title: dummy.title,
+        content: dummy.content,
+        status: dummy.status,
+        due_at: dummy.due_at,
+        project_id: dummy.project_id,
+        tags: dummy.tags ?? [],
+      })
+      setDirty(true)
+      setError(null)
+      setItems([])
+      setFiles([])
+      return
+    }
+
     const n = await getNote(id)
     setNote(n)
+    if (n?.project_id) {
+      const parent = await getNote(n.project_id)
+      setProjectTitle(parent?.title ?? null)
+    } else {
+      setProjectTitle(null)
+    }
 
-    setDraft(
-      n
-        ? {
-            title: n.title,
-            content: n.content,
-            status: n.status,
-            due_at: n.due_at,
-            project_id: n.project_id,
-            tags: n.tags ?? [],
-          }
-        : {}
-    )
+      setDraftState(
+        n
+          ? {
+              title: n.title,
+              content: n.content,
+              status: n.status,
+              due_at: n.due_at,
+              project_id: n.project_id,
+              tags: n.tags ?? [],
+              is_private: n.is_private ?? 0,
+              priority: n.priority ?? 3,
+              urgent: n.urgent ?? 0,
+            }
+          : {}
+      )
 
     setDirty(false)
     setError(null)
@@ -102,6 +161,19 @@ export default function NotePage({ id }: { id: string }) {
 
   const n = note
 
+  if (n.is_private === 1 && !authed) {
+    return (
+      <div className="min-h-screen p-6">
+        <div className="mx-auto max-w-3xl border rounded p-4">
+          <div className="font-semibold">Private note</div>
+          <div className="mt-2 text-sm opacity-70">
+            This note is private. Unlock to view.
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   async function saveDraft() {
     setSaving(true)
     setError(null)
@@ -112,11 +184,39 @@ export default function NotePage({ id }: { id: string }) {
         status: effective.status,
         due_at: effective.due_at ?? null,
         tags: normTags(effective.tags),
+        is_private: effective.is_private ?? 0,
+        priority: effective.priority ?? 3,
+        urgent: effective.urgent ?? 0,
       }
-
+      if (isNew) {
+        const newId = await createNote({
+          type: n.type,
+          title: patch.title || 'Title',
+          content: patch.content || '',
+          tags: patch.tags ?? [],
+          due_at: patch.due_at ?? null,
+          notebook_id: notebookId || null,
+          is_private: patch.is_private ?? 0,
+        })
+        setDirty(false)
+        const back = returnPath()
+        if (back) {
+          router.push(back)
+          return
+        }
+        if (n.type === 'project') router.push('/projects')
+        else router.push(`/note/${newId}`)
+        return
+      }
       await updateNote(n.id, patch)
       setDirty(false)
-      window.location.href = '/'
+      const back = returnPath()
+      if (back) {
+        router.push(back)
+        return
+      }
+      router.push(n.type === 'project' ? '/projects' : '/')
+
     } catch (e: any) {
       setError(e?.message ?? 'Failed to save')
     } finally {
@@ -125,44 +225,62 @@ export default function NotePage({ id }: { id: string }) {
   }
 
   function cancelDraft() {
-    setDraft({
-      title: n.title,
-      content: n.content,
-      status: n.status,
-      due_at: n.due_at,
-      project_id: n.project_id,
-      tags: n.tags ?? [],
-    })
+    if (isNew) {
+      if (!confirm('Discard this new note?')) return
+      const back = returnPath()
+      if (back) router.push(back)
+      else router.push('/')
+      return
+    }
+      setDraftState({
+        title: n.title,
+        content: n.content,
+        status: n.status,
+        due_at: n.due_at,
+        project_id: n.project_id,
+        tags: n.tags ?? [],
+        is_private: n.is_private ?? 0,
+        priority: n.priority ?? 3,
+        urgent: n.urgent ?? 0,
+      })
     setDirty(false)
     setError(null)
   }
 
   async function onDelete() {
+    if (isNew) {
+      if (!confirm('Discard this new note?')) return
+      const back = returnPath()
+      if (back) router.push(back)
+      else router.push('/')
+      return
+    }
     if (!confirm('Delete this note?')) return
     await deleteNote(n.id)
-    window.location.href = '/'
+    const back = returnPath()
+    if (back) {
+      router.push(back)
+      return
+    }
+    router.push(n.type === 'project' ? '/projects' : '/')
+
   }
 
   return (
     <div className="min-h-screen p-6">
       <div className="mx-auto max-w-3xl">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="underline"
-            onClick={(e) => {
-              if (dirty && !confirm('You have unsaved changes. Leave without saving?')) {
-                e.preventDefault()
-              }
-            }}
-          >
-            ← Back
-          </Link>
-
-          <span className="text-xs px-2 py-1 rounded bg-gray-100">{TYPE_LABEL[n.type]}</span>
-
-          <span className="ml-auto text-xs opacity-70">{dirty ? 'Unsaved changes' : saving ? 'Saving…' : 'Saved'}</span>
-        </div>
+        <NoteHeader noteType={n.type} dirty={dirty} saving={saving} />
+        {n.type === 'task' && n.project_id && (
+          <div className="mt-2 text-sm opacity-70">
+            Project:{' '}
+            <span
+              className="underline cursor-pointer"
+              onClick={() => router.push(`/note/${n.project_id}`)}
+            >
+              {projectTitle || 'Open project'}
+            </span>
+          </div>
+        )}
 
         {error ? (
           <div className="mt-4 border border-red-300 bg-red-50 text-red-800 rounded p-3 text-sm">
@@ -170,175 +288,24 @@ export default function NotePage({ id }: { id: string }) {
           </div>
         ) : null}
 
-        <div className="mt-4 border rounded p-4">
-          <label className="text-xs opacity-70">Title</label>
-          <input
-            className="w-full border rounded px-3 py-2 mt-1"
-            placeholder="Title"
-            value={effective.title}
-            onFocus={(e) => e.currentTarget.select()}
-            onChange={(e) => {
-              setDraft((d) => ({ ...d, title: e.target.value }))
-              setDirty(true)
-            }}
-          />
+        <NoteEditor
+          note={n}
+          effective={effective}
+          saving={saving}
+          dirty={dirty}
+          setDraft={setDraft}
+          markDirty={() => setDirty(true)}
+          onSave={saveDraft}
+          onCancel={cancelDraft}
+          onDelete={onDelete}
+        />
 
-          <div className="mt-4 flex flex-wrap gap-3 items-center">
-            <label className="text-xs opacity-70">Status</label>
-            <select
-              className="border rounded px-3 py-2"
-              value={effective.status}
-              onChange={(e) => {
-                setDraft((d) => ({ ...d, status: e.target.value as NoteStatus }))
-                setDirty(true)
-              }}
-            >
-              <option value="open">open</option>
-              <option value="done">done</option>
-              <option value="archived">archived</option>
-            </select>
+        {/* ✅ Project-only section */}
+        {!isNew && n.type === 'project' && <ProjectTreeSection projectId={n.id} />}
 
-            {n.type === 'task' && (
-              <>
-                <label className="text-xs opacity-70">Due</label>
-                <input
-                  className="border rounded px-3 py-2"
-                  type="datetime-local"
-                  value={effective.due_at ? toLocalInput(effective.due_at) : ''}
-                  onChange={(e) => {
-                    const iso = e.target.value ? new Date(e.target.value).toISOString() : null
-                    setDraft((d) => ({ ...d, due_at: iso }))
-                    setDirty(true)
-                  }}
-                />
-              </>
-            )}
-
-            <div className="ml-auto flex gap-2">
-              <button className="border rounded px-3 py-2 disabled:opacity-50" disabled={!dirty || saving} onClick={saveDraft}>
-                Save
-              </button>
-              <button className="border rounded px-3 py-2 disabled:opacity-50" disabled={!dirty || saving} onClick={cancelDraft}>
-                Cancel
-              </button>
-              <button className="border rounded px-3 py-2" onClick={onDelete}>
-                Delete
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <label className="text-xs opacity-70">Tags</label>
-            <TagsEditor
-              tags={effective.tags}
-              onChange={(next) => {
-                setDraft((d) => ({ ...d, tags: next }))
-                setDirty(true)
-              }}
-            />
-          </div>
-
-          <div className="mt-4">
-            <label className="text-xs opacity-70">Content</label>
-            <textarea
-              className="w-full border rounded px-3 py-2 mt-1 min-h-[180px]"
-              placeholder="Write here..."
-              value={effective.content}
-              onChange={(e) => {
-                setDraft((d) => ({ ...d, content: e.target.value }))
-                setDirty(true)
-              }}
-            />
-          </div>
-        </div>
-
-        {n.type === 'list' && (
-          <div className="mt-6 border rounded p-4">
-            <h2 className="font-semibold">List items</h2>
-
-            <AddItem
-              onAdd={async (text) => {
-                await addItem(n.id, text)
-                await load()
-              }}
-            />
-
-            <ul className="mt-3 space-y-2">
-              {items.map((it) => (
-                <li key={it.id} className="flex items-center gap-3 border rounded p-2">
-                  <input
-                    type="checkbox"
-                    checked={it.done === 1}
-                    onChange={async (e) => {
-                      await toggleItem(it.id, e.target.checked ? 1 : 0)
-                      await load()
-                    }}
-                  />
-                  <span className={it.done === 1 ? 'line-through opacity-60' : ''}>{it.text}</span>
-                  <button
-                    className="ml-auto text-sm underline"
-                    onClick={async () => {
-                      await deleteItem(it.id)
-                      await load()
-                    }}
-                  >
-                    remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {n.type === 'file' && (
-          <div className="mt-6 border rounded p-4">
-            <h2 className="font-semibold">Files</h2>
-
-            <input
-              className="mt-3"
-              type="file"
-              onChange={async (e) => {
-                const f = e.target.files?.[0]
-                if (!f) return
-                await attachFile(n.id, f)
-                e.target.value = ''
-                await load()
-              }}
-            />
-
-            <ul className="mt-4 space-y-2">
-              {files.map((f) => (
-                <li key={f.id} className="border rounded p-3 flex items-center gap-3">
-                  <div className="min-w-0">
-                    <div className="font-semibold truncate">{f.filename}</div>
-                    <div className="text-xs opacity-70">
-                      {f.mime} • {formatBytes(f.size)}
-                    </div>
-                  </div>
-
-                  <a className="ml-auto underline text-sm" download={f.filename} href={`data:${f.mime};base64,${f.data_base64}`}>
-                    download
-                  </a>
-
-                  <button
-                    className="underline text-sm"
-                    onClick={async () => {
-                      await deleteFile(f.id)
-                      await load()
-                    }}
-                  >
-                    remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {!isNew && n.type === 'list' && <NoteListSection noteId={n.id} items={items} reload={load} />}
+        {!isNew && n.type === 'file' && <NoteFilesSection noteId={n.id} files={files} reload={load} />}
       </div>
     </div>
   )
 }
-
-
-
-

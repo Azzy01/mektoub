@@ -1,28 +1,16 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { NoteStatus, NoteType } from '../../lib/types'
+import type { NoteStatus } from '../../lib/types'
 
 export default function FiltersBar(props: {
   q: string
   setQ: (v: string) => void
-  type: NoteType | 'all'
-  setType: (v: NoteType | 'all') => void
   status: NoteStatus | 'all'
   setStatus: (v: NoteStatus | 'all') => void
+  urgentOnly: boolean
+  setUrgentOnly: (v: boolean) => void
 }) {
-  const typeOptions = useMemo(
-    () => [
-      { value: 'all', label: 'All' },
-      { value: 'idea', label: 'Ideas' },
-      { value: 'project', label: 'Projects' },
-      { value: 'task', label: 'Tasks' },
-      { value: 'list', label: 'Lists' },
-      { value: 'file', label: 'Files' },
-    ] as const,
-    []
-  )
-
   const statusOptions = useMemo(
     () =>
       [
@@ -45,18 +33,6 @@ export default function FiltersBar(props: {
 
       <select
         className="border rounded px-3 py-2"
-        value={props.type}
-        onChange={(e) => props.setType(e.target.value as any)}
-      >
-        {typeOptions.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-
-      <select
-        className="border rounded px-3 py-2"
         value={props.status}
         onChange={(e) => props.setStatus(e.target.value as any)}
       >
@@ -66,6 +42,15 @@ export default function FiltersBar(props: {
           </option>
         ))}
       </select>
+
+      <label className="flex items-center gap-2 text-sm opacity-80">
+        <input
+          type="checkbox"
+          checked={props.urgentOnly}
+          onChange={(e) => props.setUrgentOnly(e.target.checked)}
+        />
+        Urgent only
+      </label>
     </div>
   )
 }
