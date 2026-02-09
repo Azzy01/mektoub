@@ -45,24 +45,28 @@ export async function createNote(input: {
   notebook_id?: string | null
   due_at?: string | null
   tags?: string[]
+  is_private?: 0 | 1
 }): Promise<string> {
   const db = await getDb()
   const id = uuid()
   const ts = nowIso()
+  const startAt = input.type === 'task' ? ts : null
 
   await db.query(
     `
     INSERT INTO notes (
       id, type, title, content, status,
       due_at, project_id, notebook_id,
-      tags, pinned, priority, urgent,
+      tags, pinned, priority, urgent, is_private,
+      start_at, completed_at,
       created_at, updated_at
     )
     VALUES (
       $1,$2,$3,$4,'open',
       $5,$6,$7,
-      $8,$9,$10,$11,
-      $12,$13
+      $8,$9,$10,$11,$12,
+      $13,$14,
+      $15,$16
     );
     `,
     [
@@ -77,6 +81,9 @@ export async function createNote(input: {
       0, // pinned default
       3, // priority default
       0, // urgent default
+      input.is_private ?? 0,
+      startAt,
+      null,
       ts,
       ts,
     ]
@@ -92,7 +99,7 @@ export async function updateNote(
   Pick<Note,
     'title' | 'content' | 'status' | 'due_at' |
     'project_id' | 'notebook_id' | 'tags' |
-    'pinned' | 'priority' | 'urgent'
+    'pinned' | 'priority' | 'urgent' | 'is_private'
   >
 >
 
@@ -105,12 +112,23 @@ export async function updateNote(
   const fields: string[] = []
   const values: any[] = []
 
-  const allowed = ['title','content','status','due_at','project_id','notebook_id','tags','pinned','priority','urgent'] as const
+  const allowed = ['title','content','status','due_at','project_id','notebook_id','tags','pinned','priority','urgent','is_private','completed_at'] as const
 
   for (const key of allowed) {
     if (key in normalized) {
       values.push(normalized[key])
       fields.push(`${key} = $${values.length}`)
+    }
+  }
+
+  if ('status' in normalized) {
+    if (normalized.status === 'done') {
+      values.push(nowIso())
+      fields.push(`completed_at = $${values.length}`)
+    }
+    if (normalized.status === 'open') {
+      values.push(null)
+      fields.push(`completed_at = $${values.length}`)
     }
   }
 

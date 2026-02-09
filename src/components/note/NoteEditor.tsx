@@ -1,8 +1,9 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import TagsEditor from './TagsEditor'
-import { toLocalInput } from './utils'
 import type { Note, NoteStatus } from '../../lib/types'
+import { useAuth } from '../../lib/auth'
 
 type NotePatch = Partial<
   Pick<Note, 'title' | 'content' | 'status' | 'due_at' | 'project_id' | 'tags' | 'priority' | 'urgent'>
@@ -16,6 +17,9 @@ export default function NoteEditor(props: {
     status: NoteStatus
     due_at: string | null
     tags: string[]
+    is_private: 0 | 1
+    start_at?: string | null
+    completed_at?: string | null
   }
   saving: boolean
   dirty: boolean
@@ -27,6 +31,46 @@ export default function NoteEditor(props: {
 }) {
   const n = props.note
   const e = props.effective
+  const { authed } = useAuth()
+  const [showCal, setShowCal] = useState(false)
+  const [calMonth, setCalMonth] = useState(() => {
+    const base = e.due_at ? new Date(e.due_at) : new Date()
+    return new Date(base.getFullYear(), base.getMonth(), 1)
+  })
+
+  const days = useMemo(() => {
+    const first = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1)
+    const last = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0)
+    const start = new Date(first)
+    start.setDate(first.getDate() - first.getDay())
+    const end = new Date(last)
+    end.setDate(last.getDate() + (6 - last.getDay()))
+    const arr: Date[] = []
+    const cur = new Date(start)
+    while (cur <= end) {
+      arr.push(new Date(cur))
+      cur.setDate(cur.getDate() + 1)
+    }
+    return arr
+  }, [calMonth])
+
+  function setDueDate(d: Date | null) {
+    if (!d) {
+      props.setDraft((draft) => ({ ...draft, due_at: null }))
+      props.markDirty()
+      return
+    }
+    const withTime = new Date(d)
+    withTime.setHours(18, 0, 0, 0)
+    props.setDraft((draft) => ({ ...draft, due_at: withTime.toISOString() }))
+    props.markDirty()
+  }
+
+  function prettyDue() {
+    if (!e.due_at) return 'No due date'
+    const d = new Date(e.due_at)
+    return d.toLocaleDateString()
+  }
 
   return (
     <div className="mt-4 border rounded p-4">
@@ -57,19 +101,106 @@ export default function NoteEditor(props: {
           <option value="archived">archived</option>
         </select>
 
+        <label className="text-xs opacity-70">Privacy</label>
+        <button
+          className={`border rounded px-3 py-2 text-sm ${
+            e.is_private === 1 ? 'bg-white/15 border-white/30' : 'hover:bg-white/5'
+          }`}
+          type="button"
+          disabled={!authed}
+          onClick={() => {
+            if (!authed) return
+            props.setDraft((d) => ({ ...d, is_private: e.is_private === 1 ? 0 : 1 }))
+            props.markDirty()
+          }}
+          title={authed ? 'Toggle private' : 'Unlock to set private'}
+        >
+          {e.is_private === 1 ? 'Private' : 'Public'}
+        </button>
+        {!authed && <span className="text-xs opacity-60">Unlock to set private</span>}
+
         {n.type === 'task' && (
           <>
             <label className="text-xs opacity-70">Due</label>
-            <input
-              className="border rounded px-3 py-2"
-              type="datetime-local"
-              value={e.due_at ? toLocalInput(e.due_at) : ''}
-              onChange={(ev) => {
-                const iso = ev.target.value ? new Date(ev.target.value).toISOString() : null
-                props.setDraft((d) => ({ ...d, due_at: iso }))
-                props.markDirty()
-              }}
-            />
+            <div className="relative">
+              <button
+                className="border rounded px-3 py-2 text-sm hover:bg-white/5"
+                onClick={() => setShowCal((v) => !v)}
+                type="button"
+              >
+                {prettyDue()}
+              </button>
+              <button
+                className="ml-2 border rounded px-2 py-1 text-xs hover:bg-white/5"
+                type="button"
+                onClick={() => {
+                  setDueDate(null)
+                  setShowCal(false)
+                }}
+              >
+                Clear
+              </button>
+              {showCal && (
+                <div className="absolute z-20 mt-2 border rounded bg-black/90 p-3 w-72">
+                  <div className="flex items-center gap-2 mb-2">
+                    <button
+                      className="border rounded px-2 py-1 text-xs hover:bg-white/10"
+                      onClick={() =>
+                        setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))
+                      }
+                    >
+                      ←
+                    </button>
+                    <div className="flex-1 text-center text-sm font-medium">
+                      {calMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                    </div>
+                    <button
+                      className="border rounded px-2 py-1 text-xs hover:bg-white/10"
+                      onClick={() =>
+                        setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))
+                      }
+                    >
+                      →
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1 text-xs text-center opacity-70 mb-1">
+                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                      <div key={d}>{d}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 text-xs">
+                    {days.map((d) => {
+                      const isCurrentMonth = d.getMonth() === calMonth.getMonth()
+                      const isSelected =
+                        e.due_at && new Date(e.due_at).toDateString() === d.toDateString()
+                      return (
+                        <button
+                          key={d.toISOString()}
+                          className={`rounded px-2 py-1 ${
+                            isSelected
+                              ? 'bg-white/20 border border-white/30'
+                              : 'border border-white/10 hover:bg-white/10'
+                          } ${isCurrentMonth ? '' : 'opacity-40'}`}
+                          onClick={() => {
+                            setDueDate(d)
+                            setShowCal(false)
+                          }}
+                        >
+                          {d.getDate()}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="text-xs opacity-70">
+              Start: {e.start_at ? new Date(e.start_at).toLocaleDateString() : '—'}
+            </div>
+            <div className="text-xs opacity-70">
+              Completed: {e.completed_at ? new Date(e.completed_at).toLocaleDateString() : '—'}
+            </div>
           </>
         )}
 

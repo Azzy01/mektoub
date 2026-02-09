@@ -1,30 +1,16 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { NoteStatus, NoteType } from '../../lib/types'
+import type { NoteStatus } from '../../lib/types'
 
 export default function FiltersBar(props: {
   q: string
   setQ: (v: string) => void
-  type: NoteType | 'all'
-  setType: (v: NoteType | 'all') => void
   status: NoteStatus | 'all'
   setStatus: (v: NoteStatus | 'all') => void
   urgentOnly: boolean
   setUrgentOnly: (v: boolean) => void
 }) {
-  const typeOptions = useMemo(
-    () => [
-      { value: 'all', label: 'All' },
-      { value: 'idea', label: 'Ideas' },
-      { value: 'project', label: 'Projects' },
-      { value: 'task', label: 'Tasks' },
-      { value: 'list', label: 'Lists' },
-      { value: 'file', label: 'Files' },
-    ] as const,
-    []
-  )
-
   const statusOptions = useMemo(
     () =>
       [
@@ -44,18 +30,6 @@ export default function FiltersBar(props: {
         value={props.q}
         onChange={(e) => props.setQ(e.target.value)}
       />
-
-      <select
-        className="border rounded px-3 py-2"
-        value={props.type}
-        onChange={(e) => props.setType(e.target.value as any)}
-      >
-        {typeOptions.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
 
       <select
         className="border rounded px-3 py-2"

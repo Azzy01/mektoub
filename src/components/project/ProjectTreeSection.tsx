@@ -8,6 +8,7 @@ import {
   deleteProjectNode,
   getProjectTree,
   renameProjectGroup,
+  moveProjectNode,
 } from '../../lib/repo'
 import CreateNodeModal, { CreateKind } from './CreateNodeModal'
 import TaskModal from './TaskModal'
@@ -82,6 +83,7 @@ export default function ProjectTreeSection(props: { projectId: string }) {
   const [taskModalNoteId, setTaskModalNoteId] = useState<string | null>(null)
   const [taskModalNodeId, setTaskModalNodeId] = useState<string | null>(null)
 
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null)
 
   async function reload() {
     setLoading(true)
@@ -190,6 +192,20 @@ export default function ProjectTreeSection(props: { projectId: string }) {
         <div className="mt-3 text-sm opacity-70">No groups/tasks yet. Create your first group or task.</div>
       ) : (
         <div className="mt-3 space-y-1">
+          <div
+            className="text-xs opacity-70 border border-dashed rounded px-2 py-2"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={async (e) => {
+              e.preventDefault()
+              const nodeId = e.dataTransfer.getData('nodeId')
+              const kind = e.dataTransfer.getData('kind')
+              if (!nodeId || kind !== 'task') return
+              await moveProjectNode({ nodeId, newParentId: null })
+              await reload()
+            }}
+          >
+            Drop here to move task to Project root
+          </div>
           {items.map((it) => {
             const pad = 10 + it.level * 18
 
@@ -201,6 +217,15 @@ export default function ProjectTreeSection(props: { projectId: string }) {
                   key={it.node.id}
                   className="flex items-center gap-2 border rounded px-2 py-2"
                   style={{ paddingLeft: pad }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={async (e) => {
+                    e.preventDefault()
+                    const nodeId = e.dataTransfer.getData('nodeId')
+                    const kind = e.dataTransfer.getData('kind')
+                    if (!nodeId || kind !== 'task') return
+                    await moveProjectNode({ nodeId, newParentId: it.node.id })
+                    await reload()
+                  }}
                 >
                   <button
                     className="w-7 h-7 border rounded hover:bg-white/10 flex items-center justify-center"
@@ -266,6 +291,14 @@ export default function ProjectTreeSection(props: { projectId: string }) {
                   setTaskModalNodeId(it.node.id)
                   setTaskModalOpen(true)
                 }}
+                draggable
+                onDragStart={(e) => {
+                  setDraggingNodeId(it.node.id)
+                  e.dataTransfer.setData('nodeId', it.node.id)
+                  e.dataTransfer.setData('kind', 'task')
+                  e.dataTransfer.effectAllowed = 'move'
+                }}
+                onDragEnd={() => setDraggingNodeId(null)}
                 
                 title="Open task"
               >

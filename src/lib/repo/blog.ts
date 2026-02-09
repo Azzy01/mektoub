@@ -23,6 +23,22 @@ export async function listBlogCategories(): Promise<BlogCategory[]> {
   return res.rows as BlogCategory[]
 }
 
+export async function listBlogCategoryCounts(): Promise<Record<string, number>> {
+  const db = await getDb()
+  const res = await db.query(
+    `
+    SELECT category_id, COUNT(1) AS cnt
+    FROM blog_posts
+    GROUP BY category_id;
+    `
+  )
+  const map: Record<string, number> = {}
+  for (const r of res.rows as any[]) {
+    map[r.category_id] = Number(r.cnt || 0)
+  }
+  return map
+}
+
 export async function createBlogCategory(name: string): Promise<string> {
   const db = await getDb()
   const id = uuid()
@@ -37,6 +53,23 @@ export async function createBlogCategory(name: string): Promise<string> {
     [id, n, ts]
   )
   return id
+}
+
+export async function updateBlogCategory(id: string, name: string): Promise<void> {
+  const db = await getDb()
+  const n = name.trim()
+  if (!n) throw new Error('Category name is required')
+  await db.query(`UPDATE blog_categories SET name = $1 WHERE id = $2;`, [n, id])
+}
+
+export async function deleteBlogCategory(id: string): Promise<void> {
+  const db = await getDb()
+  const res = await db.query(`SELECT COUNT(1) AS cnt FROM blog_posts WHERE category_id = $1;`, [id])
+  const cnt = Number((res.rows?.[0] as any)?.cnt ?? 0)
+  if (cnt > 0) {
+    throw new Error('Cannot delete category with posts')
+  }
+  await db.query(`DELETE FROM blog_categories WHERE id = $1;`, [id])
 }
 
 export async function listBlogPosts(params?: {

@@ -74,8 +74,20 @@ async function migrate(db: PGlite) {
     `)
 
     await db.exec(`
-      ALTER TABLE notes ADD COLUMN IF NOT EXISTS urgent INTEGER NOT NULL DEFAULT 0;
-    `)
+    ALTER TABLE notes ADD COLUMN IF NOT EXISTS urgent INTEGER NOT NULL DEFAULT 0;
+  `)
+
+    await db.exec(`
+    ALTER TABLE notes ADD COLUMN IF NOT EXISTS is_private INTEGER NOT NULL DEFAULT 0;
+  `)
+
+    await db.exec(`
+    ALTER TABLE notes ADD COLUMN IF NOT EXISTS start_at TEXT;
+  `)
+
+    await db.exec(`
+    ALTER TABLE notes ADD COLUMN IF NOT EXISTS completed_at TEXT;
+  `)
 
     // Notebooks table
     await db.exec(`
@@ -162,4 +174,3 @@ async function migrate(db: PGlite) {
   `)
 
 }
-

@@ -151,17 +151,19 @@ export async function createTaskInProject(params: {
     INSERT INTO notes (
       id, type, title, content, status,
       due_at, project_id, notebook_id,
-      tags, pinned, priority, urgent,
+      tags, pinned, priority, urgent, is_private,
+      start_at, completed_at,
       created_at, updated_at
     )
     VALUES (
       $1,$2,$3,'','open',
       NULL,$4,NULL,
-      '[]',0,3,0,
-      $5,$6
+      '[]',0,3,0,0,
+      $5,NULL,
+      $6,$7
     );
     `,
-    [noteId, 'task' as NoteType, params.title.trim() || '(Untitled)', params.projectId, ts, ts]
+    [noteId, 'task' as NoteType, params.title.trim() || '(Untitled)', params.projectId, ts, ts, ts]
   )
 
   // sort_order = max+1 under same parent
@@ -235,4 +237,32 @@ export async function deleteTaskNodeAndNote(nodeId: string): Promise<void> {
     await db.query(`DELETE FROM list_items WHERE note_id = $1;`, [noteId])
     await db.query(`DELETE FROM notes WHERE id = $1;`, [noteId])
   }
+}
+
+export async function moveProjectNode(params: {
+  nodeId: string
+  newParentId?: string | null
+}): Promise<void> {
+  const db = await getDb()
+  const ts = nowIso()
+
+  const ordRes = await db.query(
+    `
+    SELECT COALESCE(MAX(sort_order), 0) AS max_order
+    FROM project_nodes
+    WHERE project_id = (SELECT project_id FROM project_nodes WHERE id = $1)
+      AND (parent_id IS NOT DISTINCT FROM $2);
+    `,
+    [params.nodeId, params.newParentId ?? null]
+  )
+  const maxOrder = Number((ordRes.rows?.[0] as any)?.max_order ?? 0)
+
+  await db.query(
+    `
+    UPDATE project_nodes
+    SET parent_id = $1, sort_order = $2, updated_at = $3
+    WHERE id = $4;
+    `,
+    [params.newParentId ?? null, maxOrder + 1, ts, params.nodeId]
+  )
 }

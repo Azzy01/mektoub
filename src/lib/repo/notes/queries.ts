@@ -8,6 +8,7 @@ export function buildListNotesWhere(params?: ListNotesParams) {
   const projectId = params?.projectId ?? 'all'
   const status = params?.status ?? 'all'
   const notebookId = params?.notebookId ?? 'all'
+  const includePrivate = params?.includePrivate ?? false
 
   const where: string[] = []
   const values: any[] = []
@@ -45,6 +46,10 @@ export function buildListNotesWhere(params?: ListNotesParams) {
 
   if (params?.hideProjectTasks) {
     where.push(`NOT (type = 'task' AND project_id IS NOT NULL)`)
+  }
+
+  if (!includePrivate) {
+    where.push(`is_private = 0`)
   }
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''

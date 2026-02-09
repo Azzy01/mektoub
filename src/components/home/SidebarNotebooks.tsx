@@ -10,6 +10,9 @@ export default function SidebarNotebooks(props: {
   onCreateNotebook: () => Promise<void>
   onRenameNotebook: (nb: Notebook) => Promise<void>
   onDeleteNotebook: (nb: Notebook) => Promise<void>
+  entityType: 'all' | 'idea' | 'task' | 'list' | 'file'
+  setEntityType: (v: 'all' | 'idea' | 'task' | 'list' | 'file') => void
+  entityCounts: Record<'all' | 'idea' | 'task' | 'list' | 'file', number>
 }) {
   return (
     <aside className="border rounded p-3 h-fit md:sticky md:top-6">
@@ -67,6 +70,34 @@ export default function SidebarNotebooks(props: {
           })}
 
           {props.notebooks.length === 0 && <div className="text-sm opacity-70 px-1 pt-1">No notebooks yet.</div>}
+        </div>
+      </div>
+
+      <div className="mt-4 border rounded p-3">
+        <div className="text-xs uppercase tracking-wide opacity-60 px-1">Groups</div>
+        <div className="mt-2 space-y-1">
+          {([
+            { id: 'all', label: 'All' },
+            { id: 'idea', label: 'Ideas' },
+            { id: 'task', label: 'Tasks' },
+            { id: 'list', label: 'Lists' },
+            { id: 'file', label: 'Files' },
+          ] as const).map((it) => (
+            <button
+              key={it.id}
+              className={`w-full text-left px-3 py-2 rounded border ${
+                props.entityType === it.id ? 'bg-white/15 border-white/20' : 'border-transparent hover:bg-white/10'
+              }`}
+              onClick={() => props.setEntityType(it.id)}
+            >
+              <div className="flex items-center gap-2">
+                <span className="truncate">{it.label}</span>
+                <span className="ml-auto text-xs px-2 py-0.5 rounded-full border border-white/20 bg-white/10 opacity-80">
+                  {props.entityCounts[it.id]}
+                </span>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
     </aside>

@@ -7,14 +7,15 @@ import FiltersBar from './FiltersBar'
 import HomeHeader from './HomeHeader'
 import NotesList from './NotesList'
 import TagChips from './TagChips'
-import { useNotebooks } from './hooks/useNotebooks'
-import { useNotesList } from './hooks/useNotesList'
+import type { useNotebooks } from './hooks/useNotebooks'
+import type { useNotesList } from './hooks/useNotesList'
 
-export default function Home() {
-  // We keep notebooks hook ONLY for selected notebookId (filter),
-  // but sidebar UI must NOT be rendered here.
-  const nb = useNotebooks()
-  const nl = useNotesList(nb.notebookId, { excludeTypes: ['project'] })
+export default function Home(props: {
+  nb: ReturnType<typeof useNotebooks>
+  nl: ReturnType<typeof useNotesList>
+}) {
+  const nb = props.nb
+  const nl = props.nl
   const router = useRouter()
 
 
@@ -22,6 +23,7 @@ export default function Home() {
     const notebookId = nb.notebookId !== 'all' && nb.notebookId !== 'none' ? nb.notebookId : null
     const q = new URLSearchParams()
     q.set('type', t)
+    q.set('from', 'main')
     if (notebookId) q.set('nb', notebookId)
     router.push(`/note/new?${q.toString()}`)
   }
@@ -31,6 +33,7 @@ export default function Home() {
     const q = new URLSearchParams()
     q.set('type', 'idea')
     q.set('quick', '1')
+    q.set('from', 'main')
     if (notebookId) q.set('nb', notebookId)
     router.push(`/note/new?${q.toString()}`)
   }
@@ -42,8 +45,6 @@ export default function Home() {
       <FiltersBar
         q={nl.q}
         setQ={nl.setQ}
-        type={nl.type}
-        setType={nl.setType}
         status={nl.status}
         setStatus={nl.setStatus}
         urgentOnly={nl.urgentOnly}

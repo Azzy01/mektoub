@@ -9,4 +9,5 @@ export type ListNotesParams = {
   notebookId?: string | 'all' | 'none'
   status?: NoteStatus | 'all'
   hideProjectTasks?: boolean
+  includePrivate?: boolean
 }

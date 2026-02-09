@@ -52,6 +52,11 @@ export default function NoteCard(props: {
                 ⚠️ Urgent
               </span>
             )}
+            {note.is_private === 1 && (
+              <span className="text-xs px-2 py-1 rounded border border-purple-400/30 bg-purple-500/20 text-purple-100">
+                🔒 Private
+              </span>
+            )}
           </div>
 
           <div className="mt-2 font-semibold truncate">{note.title}</div>

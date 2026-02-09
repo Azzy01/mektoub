@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { logout, tryLogin, useAuth } from '../../lib/auth'
 
 function Tab({ href, label }: { href: string; label: string }) {
   const pathname = usePathname()
@@ -19,13 +20,40 @@ function Tab({ href, label }: { href: string; label: string }) {
 }
 
 export default function TopNav() {
+  const { authed } = useAuth()
   return (
     <div className="flex items-center gap-2 mb-4">
       <div className="font-semibold text-lg mr-2">Mektoub</div>
       <Tab href="/" label="Main" />
+      <Tab href="/today" label="Today" />
       <Tab href="/projects" label="Projects" />
       <Tab href="/blog" label="Blog" />
-      <div className="ml-auto text-xs opacity-60">Offline-first</div>
+      <div className="ml-auto flex items-center gap-2 text-xs">
+        {authed ? (
+          <button
+            className="border rounded px-2 py-1 hover:bg-white/10"
+            onClick={() => logout()}
+          >
+            Lock
+          </button>
+        ) : (
+          <button
+            className="border rounded px-2 py-1 hover:bg-white/10"
+            onClick={() => {
+              const login = prompt('Login')
+              if (login == null) return
+              const pass = prompt('Password')
+              if (pass == null) return
+              if (!tryLogin(login, pass)) {
+                alert('Invalid credentials')
+              }
+            }}
+          >
+            Unlock
+          </button>
+        )}
+        <span className="opacity-60">Offline-first</span>
+      </div>
     </div>
   )
 }

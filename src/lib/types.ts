@@ -13,6 +13,9 @@ export type Note = {
     pinned: 0 | 1
     priority: number
     urgent: 0 | 1
+    is_private: 0 | 1
+    start_at: string | null
+    completed_at: string | null
     notebook_id: string | null
     created_at: string
     updated_at: string
