@@ -46,6 +46,8 @@ export async function createNote(input: {
   due_at?: string | null
   tags?: string[]
   is_private?: 0 | 1
+  priority?: number
+  urgent?: 0 | 1
 }): Promise<string> {
   const db = await getDb()
   const id = uuid()
@@ -79,8 +81,8 @@ export async function createNote(input: {
       input.notebook_id ?? null,
       stringifyTags(input.tags ?? []),
       0, // pinned default
-      3, // priority default
-      0, // urgent default
+      input.priority ?? 3,
+      input.urgent ?? 0,
       input.is_private ?? 0,
       startAt,
       null,

@@ -20,6 +20,8 @@ export default function NoteEditor(props: {
     is_private: 0 | 1
     start_at?: string | null
     completed_at?: string | null
+    priority?: number
+    urgent?: 0 | 1
   }
   saving: boolean
   dirty: boolean
@@ -195,6 +197,34 @@ export default function NoteEditor(props: {
                 </div>
               )}
             </div>
+            <label className="text-xs opacity-70">Priority</label>
+            <select
+              className="border rounded px-3 py-2 text-sm"
+              value={String(e.priority ?? 3)}
+              onChange={(ev) => {
+                props.setDraft((d) => ({ ...d, priority: Number(ev.target.value) }))
+                props.markDirty()
+              }}
+            >
+              <option value="1">1 (high)</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5 (low)</option>
+            </select>
+            <label className="text-xs opacity-70">Urgent</label>
+            <button
+              className={`border rounded px-3 py-2 text-sm ${
+                (e.urgent ?? 0) === 1 ? 'bg-white/15 border-white/30' : 'hover:bg-white/5'
+              }`}
+              type="button"
+              onClick={() => {
+                props.setDraft((d) => ({ ...d, urgent: (e.urgent ?? 0) === 1 ? 0 : 1 }))
+                props.markDirty()
+              }}
+            >
+              {(e.urgent ?? 0) === 1 ? 'Urgent' : 'Not urgent'}
+            </button>
             <div className="text-xs opacity-70">
               Start: {e.start_at ? new Date(e.start_at).toLocaleDateString() : '—'}
             </div>

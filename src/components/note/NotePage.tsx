@@ -48,6 +48,8 @@ export default function NotePage({ id }: { id: string }) {
         due_at: (draft.due_at ?? null) as string | null,
         tags: normTags(draft.tags),
         is_private: (draft.is_private ?? 0) as 0 | 1,
+        priority: (draft.priority ?? 3) as number,
+        urgent: (draft.urgent ?? 0) as 0 | 1,
       }
     }
 
@@ -60,6 +62,8 @@ export default function NotePage({ id }: { id: string }) {
       is_private: (draft.is_private ?? note.is_private) as 0 | 1,
       start_at: note.start_at ?? null,
       completed_at: note.completed_at ?? null,
+      priority: (draft.priority ?? note.priority ?? 3) as number,
+      urgent: (draft.urgent ?? note.urgent ?? 0) as 0 | 1,
     }
   }, [draft, note])
 
@@ -115,19 +119,21 @@ export default function NotePage({ id }: { id: string }) {
       setProjectTitle(null)
     }
 
-    setDraftState(
-      n
-        ? {
-            title: n.title,
-            content: n.content,
-            status: n.status,
-            due_at: n.due_at,
-            project_id: n.project_id,
-            tags: n.tags ?? [],
-            is_private: n.is_private ?? 0,
-          }
-        : {}
-    )
+      setDraftState(
+        n
+          ? {
+              title: n.title,
+              content: n.content,
+              status: n.status,
+              due_at: n.due_at,
+              project_id: n.project_id,
+              tags: n.tags ?? [],
+              is_private: n.is_private ?? 0,
+              priority: n.priority ?? 3,
+              urgent: n.urgent ?? 0,
+            }
+          : {}
+      )
 
     setDirty(false)
     setError(null)
@@ -179,6 +185,8 @@ export default function NotePage({ id }: { id: string }) {
         due_at: effective.due_at ?? null,
         tags: normTags(effective.tags),
         is_private: effective.is_private ?? 0,
+        priority: effective.priority ?? 3,
+        urgent: effective.urgent ?? 0,
       }
       if (isNew) {
         const newId = await createNote({
@@ -224,15 +232,17 @@ export default function NotePage({ id }: { id: string }) {
       else router.push('/')
       return
     }
-    setDraftState({
-      title: n.title,
-      content: n.content,
-      status: n.status,
-      due_at: n.due_at,
-      project_id: n.project_id,
-      tags: n.tags ?? [],
-      is_private: n.is_private ?? 0,
-    })
+      setDraftState({
+        title: n.title,
+        content: n.content,
+        status: n.status,
+        due_at: n.due_at,
+        project_id: n.project_id,
+        tags: n.tags ?? [],
+        is_private: n.is_private ?? 0,
+        priority: n.priority ?? 3,
+        urgent: n.urgent ?? 0,
+      })
     setDirty(false)
     setError(null)
   }

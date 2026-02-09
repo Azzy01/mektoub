@@ -10,8 +10,8 @@ function Tab({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className={`px-3 py-2 border rounded ${
-        active ? 'bg-white/15 border-white/30' : 'border-white/10 hover:bg-white/10'
+      className={`px-3 py-2 border rounded-full text-sm transition ${
+        active ? 'bg-white/20 border-white/30' : 'border-white/10 hover:bg-white/10'
       }`}
     >
       {label}
@@ -23,9 +23,10 @@ export default function TopNav() {
   const { authed } = useAuth()
   return (
     <div className="flex items-center gap-2 mb-4">
-      <div className="font-semibold text-lg mr-2">Mektoub</div>
+      <div className="font-semibold text-lg mr-2 tracking-wide">Mektoub</div>
       <Tab href="/" label="Main" />
       <Tab href="/today" label="Today" />
+      <Tab href="/calendar" label="Calendar" />
       <Tab href="/projects" label="Projects" />
       <Tab href="/blog" label="Blog" />
       <div className="ml-auto flex items-center gap-2 text-xs">
