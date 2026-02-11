@@ -205,7 +205,7 @@ export default function NotePage({ id }: { id: string }) {
           return
         }
         if (n.type === 'project') router.push('/projects')
-        else router.push(`/note/${newId}`)
+        else router.push(`/note?id=${newId}`)
         return
       }
       await updateNote(n.id, patch)
@@ -275,7 +275,7 @@ export default function NotePage({ id }: { id: string }) {
             Project:{' '}
             <span
               className="underline cursor-pointer"
-              onClick={() => router.push(`/note/${n.project_id}`)}
+              onClick={() => router.push(`/note?id=${n.project_id}`)}
             >
               {projectTitle || 'Open project'}
             </span>

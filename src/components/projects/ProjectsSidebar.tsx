@@ -38,7 +38,7 @@ export default function ProjectsSidebar() {
   }, [authed])
 
   function onCreateProject() {
-    router.push('/note/new?type=project&from=projects')
+    router.push('/note?new=1&type=project&from=projects')
   }
 
   const filtered = useMemo(() => {
@@ -83,7 +83,7 @@ export default function ProjectsSidebar() {
               <button
                 key={p.id}
                 className="w-full text-left px-3 py-2 border rounded border-white/10 hover:bg-white/10"
-                onClick={() => router.push(`/note/${p.id}?from=projects`)}
+                onClick={() => router.push(`/note?id=${p.id}&from=projects`)}
                 title={p.title}
               >
                 <div className="flex items-center gap-2">

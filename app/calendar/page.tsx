@@ -230,7 +230,7 @@ export default function Page() {
                       <button
                         key={t.id}
                         className="w-full text-left text-xs border rounded px-2 py-1 hover:bg-white/10 truncate"
-                        onClick={() => router.push(`/note/${t.id}?from=calendar`)}
+                        onClick={() => router.push(`/note?id=${t.id}&from=calendar`)}
                         title={t.title}
                       >
                         {t.title}

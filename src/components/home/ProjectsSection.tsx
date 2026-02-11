@@ -194,7 +194,7 @@ export default function ProjectsSection() {
                     className="text-sm underline opacity-80 hover:opacity-100"
                     onClick={(e) => {
                       e.stopPropagation()
-                      window.location.href = `/note/${b.project.id}?from=projects`
+                      window.location.href = `/note?id=${b.project.id}&from=projects`
                     }}
                   >
                     open
@@ -283,7 +283,7 @@ function ProjectTreeInline(props: {
             <div className="flex-1 min-w-0">
               <button
                 className="text-left w-full truncate"
-                onClick={() => (window.location.href = `/note/${note.id}?from=projects`)}
+                onClick={() => (window.location.href = `/note?id=${note.id}&from=projects`)}
               >
                 {note.status === 'done' ? '✅' : '▫️'} {note.title}
               </button>

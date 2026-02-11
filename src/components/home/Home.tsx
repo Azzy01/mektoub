@@ -25,7 +25,8 @@ export default function Home(props: {
     q.set('type', t)
     q.set('from', 'main')
     if (notebookId) q.set('nb', notebookId)
-    router.push(`/note/new?${q.toString()}`)
+    q.set('new', '1')
+    router.push(`/note?${q.toString()}`)
   }
 
   async function onQuick() {
@@ -35,7 +36,8 @@ export default function Home(props: {
     q.set('quick', '1')
     q.set('from', 'main')
     if (notebookId) q.set('nb', notebookId)
-    router.push(`/note/new?${q.toString()}`)
+    q.set('new', '1')
+    router.push(`/note?${q.toString()}`)
   }
 
   return (

@@ -139,7 +139,7 @@ export default function Page() {
               <div className="min-w-0 flex-1">
                 <div
                   className="font-medium truncate cursor-pointer"
-                  onClick={() => router.push(`/note/${t.id}?from=today`)}
+                  onClick={() => router.push(`/note?id=${t.id}&from=today`)}
                 >
                   {t.title}
                 </div>
@@ -221,7 +221,7 @@ export default function Page() {
                     <div className="min-w-0 flex-1">
                       <div
                         className="font-medium truncate cursor-pointer"
-                        onClick={() => router.push(`/note/${t.id}?from=today`)}
+                        onClick={() => router.push(`/note?id=${t.id}&from=today`)}
                       >
                         {t.title}
                       </div>
