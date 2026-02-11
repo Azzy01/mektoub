@@ -29,7 +29,7 @@ export default function NoteCard(props: {
   return (
     <div
       className="block border rounded p-3 hover:bg-white/5 transition cursor-pointer"
-      onClick={() => router.push(`/note/${note.id}`)}
+      onClick={() => router.push(`/note?id=${note.id}`)}
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">

@@ -53,7 +53,7 @@ export default function Home() {
 
     const id = await createNote({ type: t, title })
     // go to the editor
-    window.location.href = `/note/${id}`
+    window.location.href = `/note?id=${id}`
   }
 
   return (
@@ -97,7 +97,7 @@ export default function Home() {
             <ul>
               {filtered.map(n => (
                 <li key={n.id} className="border-b last:border-b-0">
-                  <Link href={`/note/${n.id}`} className="block p-4 hover:bg-white/5 hover:border-white/20 border border-transparent">
+                  <Link href={`/note?id=${n.id}`} className="block p-4 hover:bg-white/5 hover:border-white/20 border border-transparent">
  
                     <div className="flex items-center gap-3">
                       <span className="text-xs px-2 py-1 rounded bg-gray-100">{n.type}</span>

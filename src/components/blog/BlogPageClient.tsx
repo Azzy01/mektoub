@@ -211,7 +211,7 @@ export default function BlogPageClient() {
                 <div
                   key={p.id}
                   className={`group border rounded p-3 cursor-pointer ${viewMode === 'list' ? 'flex gap-3' : ''}`}
-                  onClick={() => router.push(`/blog/${p.id}`)}
+                  onClick={() => router.push(`/blog/post?id=${p.id}`)}
                   title="Open post"
                 >
                   {coverSrc && (
@@ -232,14 +232,14 @@ export default function BlogPageClient() {
                     <div className="mt-3 flex items-center gap-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                       <Link
                         className="border rounded px-2 py-1 hover:bg-white/10"
-                        href={`/blog/${p.id}`}
+                        href={`/blog/post?id=${p.id}`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         Open
                       </Link>
                       <Link
                         className="border rounded px-2 py-1 hover:bg-white/10"
-                        href={`/blog/${p.id}/edit`}
+                        href={`/blog/post?id=${p.id}&edit=1`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         Edit
