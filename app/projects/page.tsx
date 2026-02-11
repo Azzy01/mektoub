@@ -1,11 +1,10 @@
-import AppShell from '../../src/components/shell/AppShell'
-import ProjectsSidebar from '../../src/components/projects/ProjectsSidebar'
-import ProjectsHome from '../../src/components/projects/ProjectsHome'
+import { Suspense } from 'react'
+import ProjectsPageClient from '../../src/components/projects/ProjectsPageClient'
 
 export default function Page() {
   return (
-    <AppShell left={<ProjectsSidebar />}>
-      <ProjectsHome />
-    </AppShell>
+    <Suspense fallback={<div className="panel p-4">Loading…</div>}>
+      <ProjectsPageClient />
+    </Suspense>
   )
 }
