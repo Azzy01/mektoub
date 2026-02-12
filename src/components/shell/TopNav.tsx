@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logout, tryLogin, useAuth } from '../../lib/auth'
+import { syncNow } from '../../lib/sync'
 
 function Tab({ href, label }: { href: string; label: string }) {
   const pathname = usePathname()
@@ -40,17 +41,27 @@ export default function TopNav() {
         ) : (
           <button
             className="border rounded px-2 py-1 hover:bg-white/10"
-            onClick={() => {
+            onClick={async () => {
               const login = prompt('Login')
               if (login == null) return
               const pass = prompt('Password')
               if (pass == null) return
-              if (!tryLogin(login, pass)) {
+              if (!(await tryLogin(login, pass))) {
                 alert('Invalid credentials')
+                return
               }
+              await syncNow()
             }}
           >
             Unlock
+          </button>
+        )}
+        {authed && (
+          <button
+            className="border rounded px-2 py-1 hover:bg-white/10"
+            onClick={() => syncNow()}
+          >
+            Sync
           </button>
         )}
         <span className="opacity-60">Offline-first</span>
