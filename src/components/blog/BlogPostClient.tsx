@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AppShell from '../shell/AppShell'
@@ -117,7 +118,14 @@ function BlogPostView({ id }: { id: string }) {
                 : `Updated ${new Date(post.updated_at).toLocaleString()}`}
             </div>
             {coverSrc && (
-              <img src={coverSrc} alt={post.title} className="w-full max-h-96 object-cover rounded border" />
+              <Image
+                src={coverSrc}
+                alt={post.title}
+                width={1200}
+                height={630}
+                unoptimized
+                className="w-full max-h-96 object-cover rounded border"
+              />
             )}
             {post.excerpt && <p className="text-base opacity-90">{post.excerpt}</p>}
             <div className="space-y-3 text-base leading-relaxed">
@@ -133,10 +141,13 @@ function BlogPostView({ id }: { id: string }) {
                   }
                   const src = `data:${block.file.mime};base64,${block.file.data_base64}`
                   return (
-                    <img
+                    <Image
                       key={`img-${block.file.id}-${i}`}
                       src={src}
                       alt={block.file.filename}
+                      width={1200}
+                      height={630}
+                      unoptimized
                       className="w-full max-h-96 object-cover rounded border"
                     />
                   )

@@ -173,4 +173,18 @@ async function migrate(db: PGlite) {
     CREATE INDEX IF NOT EXISTS idx_blog_files_role ON blog_files(role);
   `)
 
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS deleted_rows (
+      id TEXT PRIMARY KEY,
+      table_name TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      deleted_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_deleted_rows_table_row
+      ON deleted_rows(table_name, row_id);
+    CREATE INDEX IF NOT EXISTS idx_deleted_rows_updated_at ON deleted_rows(updated_at);
+  `)
+
 }

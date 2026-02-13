@@ -12,6 +12,7 @@ type TableName =
   | 'blog_categories'
   | 'blog_posts'
   | 'blog_files'
+  | 'deleted_rows'
 
 const TABLES: TableName[] = [
   'notes',
@@ -22,9 +23,23 @@ const TABLES: TableName[] = [
   'blog_categories',
   'blog_posts',
   'blog_files',
+  'deleted_rows',
 ]
 
-export async function syncNow(): Promise<void> {
+const DELETABLE_TABLES: Array<Exclude<TableName, 'deleted_rows'>> = [
+  'notes',
+  'list_items',
+  'files',
+  'notebooks',
+  'project_nodes',
+  'blog_categories',
+  'blog_posts',
+  'blog_files',
+]
+
+let syncInFlight: Promise<void> | null = null
+
+async function runSync(): Promise<void> {
   const token = getAuthToken()
   const db = await getDb()
 
@@ -41,8 +56,12 @@ export async function syncNow(): Promise<void> {
     method: 'POST',
     headers,
     body: JSON.stringify({ data }),
+    cache: 'no-store',
   })
-  if (!res.ok) return
+  if (!res.ok) {
+    console.warn(`[mektoub-sync] sync failed with status ${res.status}`)
+    return
+  }
   const json = await res.json()
   if (!json?.data) return
 
@@ -75,7 +94,7 @@ export async function syncNow(): Promise<void> {
       for (const r of rows) {
         const cols = Object.keys(r)
         const placeholders = cols.map((_, i) => `$${i + 1}`).join(',')
-        const updates = cols.map((c, i) => `${c} = EXCLUDED.${c}`).join(',')
+        const updates = cols.map((c) => `${c} = EXCLUDED.${c}`).join(',')
         const values = cols.map((c) => (r as any)[c])
         if (t === 'blog_categories') {
           // avoid duplicate name constraint
@@ -93,6 +112,17 @@ export async function syncNow(): Promise<void> {
         }
       }
     }
+
+    // Apply server tombstones after upserts to prevent resurrected rows.
+    const deletedRows = (json.data.deleted_rows || []) as Array<Record<string, unknown>>
+    for (const row of deletedRows) {
+      const table = String(row.table_name || '')
+      const rowId = String(row.row_id || '')
+      if (!rowId) continue
+      if (!DELETABLE_TABLES.includes(table as Exclude<TableName, 'deleted_rows'>)) continue
+      await db.query(`DELETE FROM ${table} WHERE id = $1;`, [rowId])
+    }
+
     await db.exec('COMMIT;')
   } catch (e) {
     await db.exec('ROLLBACK;')
@@ -100,4 +130,12 @@ export async function syncNow(): Promise<void> {
   }
 
   window.dispatchEvent(new Event('mektoub-sync-complete'))
+}
+
+export async function syncNow(): Promise<void> {
+  if (syncInFlight) return syncInFlight
+  syncInFlight = runSync().finally(() => {
+    syncInFlight = null
+  })
+  return syncInFlight
 }

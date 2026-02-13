@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AppShell from '../shell/AppShell'
@@ -215,9 +216,12 @@ export default function BlogPageClient() {
                   title="Open post"
                 >
                   {coverSrc && (
-                    <img
+                    <Image
                       src={coverSrc}
                       alt={p.title}
+                      width={640}
+                      height={360}
+                      unoptimized
                       className={viewMode === 'list' ? 'h-20 w-28 rounded object-cover border' : 'h-36 w-full rounded object-cover border'}
                     />
                   )}
@@ -268,11 +272,11 @@ export default function BlogPageClient() {
               resetForm()
               setShowCreate(false)
             }}
-          >
-            <div
-              className="w-full max-w-3xl max-h-[90vh] overflow-auto border rounded bg-black/90 p-4"
-              onClick={(e) => e.stopPropagation()}
             >
+              <div
+                className="w-full max-w-3xl max-h-[90vh] overflow-auto border rounded bg-[var(--background)] text-[var(--foreground)] p-4"
+                onClick={(e) => e.stopPropagation()}
+              >
               <div className="flex items-center gap-2">
                 <div className="font-semibold text-lg">Create blog post</div>
                 <button

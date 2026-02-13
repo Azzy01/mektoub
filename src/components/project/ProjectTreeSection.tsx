@@ -84,8 +84,6 @@ export default function ProjectTreeSection(props: { projectId: string }) {
   const [taskModalNoteId, setTaskModalNoteId] = useState<string | null>(null)
   const [taskModalNodeId, setTaskModalNodeId] = useState<string | null>(null)
 
-  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null)
-
   async function reload() {
     setLoading(true)
     const res = await getProjectTree(props.projectId)
@@ -300,12 +298,10 @@ export default function ProjectTreeSection(props: { projectId: string }) {
                 }}
                 draggable
                 onDragStart={(e) => {
-                  setDraggingNodeId(it.node.id)
                   e.dataTransfer.setData('nodeId', it.node.id)
                   e.dataTransfer.setData('kind', 'task')
                   e.dataTransfer.effectAllowed = 'move'
                 }}
-                onDragEnd={() => setDraggingNodeId(null)}
                 
                 title="Open task"
               >

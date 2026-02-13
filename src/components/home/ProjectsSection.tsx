@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { Note, ProjectNodeRow } from '../../lib/types'
 import { createTaskInProject, getProjectTree, listNotes, updateNote } from '../../lib/repo'
@@ -63,7 +63,7 @@ export default function ProjectsSection() {
   const { authed } = useAuth()
   const [quickAdd, setQuickAdd] = useState<Record<string, string>>({})
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     await syncNow()
     // load all projects
@@ -89,11 +89,11 @@ export default function ProjectsSection() {
 
     setProjects(bundles)
     setLoading(false)
-  }
+  }, [authed])
 
   useEffect(() => {
-    load()
-  }, [authed])
+    void load()
+  }, [load])
 
   const sorted = useMemo(() => {
     const filtered = statusFilter === 'all'

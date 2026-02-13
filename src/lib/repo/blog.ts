@@ -3,6 +3,7 @@
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../db'
 import type { BlogCategory, BlogFile, BlogPost, BlogPostStatus } from '../types'
+import { markDeleted, markManyDeleted } from './tombstones'
 
 function nowIso() {
   return new Date().toISOString()
@@ -70,6 +71,7 @@ export async function deleteBlogCategory(id: string): Promise<void> {
     throw new Error('Cannot delete category with posts')
   }
   await db.query(`DELETE FROM blog_categories WHERE id = $1;`, [id])
+  await markDeleted('blog_categories', id)
 }
 
 export async function listBlogPosts(params?: {
@@ -305,8 +307,14 @@ export async function updateBlogPost(
 
 export async function deleteBlogPost(id: string): Promise<void> {
   const db = await getDb()
+  const filesRes = await db.query(`SELECT id FROM blog_files WHERE post_id = $1;`, [id])
+  const fileIds = (filesRes.rows as Array<{ id: string }>).map((r) => r.id)
   await db.query(`DELETE FROM blog_files WHERE post_id = $1;`, [id])
   await db.query(`DELETE FROM blog_posts WHERE id = $1;`, [id])
+  await markManyDeleted([
+    ...fileIds.map((rowId) => ({ table: 'blog_files' as const, rowId })),
+    { table: 'blog_posts' as const, rowId: id },
+  ])
 }
 
 export async function attachBlogFile(

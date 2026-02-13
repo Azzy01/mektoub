@@ -2,6 +2,7 @@
 
 import type { FileRow } from '../../lib/types'
 import { attachFile, deleteFile } from '../../lib/repo'
+import { syncNow } from '../../lib/sync'
 import { formatBytes } from './utils'
 
 export default function NoteFilesSection(props: {
@@ -20,6 +21,7 @@ export default function NoteFilesSection(props: {
           const f = e.target.files?.[0]
           if (!f) return
           await attachFile(props.noteId, f)
+          await syncNow()
           e.target.value = ''
           await props.reload()
         }}
@@ -43,6 +45,7 @@ export default function NoteFilesSection(props: {
               className="underline text-sm"
               onClick={async () => {
                 await deleteFile(f.id)
+                await syncNow()
                 await props.reload()
               }}
             >

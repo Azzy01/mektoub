@@ -74,7 +74,10 @@ export default function NotePage({ id }: { id: string }) {
     return `/${returnTo}`
   }
 
-  async function load() {
+  async function load(syncFirst = false) {
+    if (!isNew && syncFirst) {
+      await syncNow()
+    }
     if (isNew) {
       const dummy: Note = {
         id: 'new',
@@ -146,9 +149,19 @@ export default function NotePage({ id }: { id: string }) {
   }
 
   useEffect(() => {
-    load()
+    void load(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  useEffect(() => {
+    if (isNew) return
+    const onSync = () => {
+      void load(false)
+    }
+    window.addEventListener('mektoub-sync-complete', onSync)
+    return () => window.removeEventListener('mektoub-sync-complete', onSync)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isNew])
 
   if (!note) {
     return (
@@ -260,6 +273,7 @@ export default function NotePage({ id }: { id: string }) {
     }
     if (!confirm('Delete this note?')) return
     await deleteNote(n.id)
+    await syncNow()
     const back = returnPath()
     if (back) {
       router.push(back)

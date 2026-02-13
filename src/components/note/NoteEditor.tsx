@@ -145,7 +145,7 @@ export default function NoteEditor(props: {
                 Clear
               </button>
               {showCal && (
-                <div className="absolute z-20 mt-2 border rounded bg-black/90 p-3 w-72">
+                <div className="absolute z-20 mt-2 panel p-3 w-72">
                   <div className="flex items-center gap-2 mb-2">
                     <button
                       className="border rounded px-2 py-1 text-xs hover:bg-white/10"

@@ -42,6 +42,25 @@ function token_valid($token) {
   return false;
 }
 
+function table_has_column($table, $column) {
+  static $cache = [];
+  $key = $table . '.' . $column;
+  if (array_key_exists($key, $cache)) return $cache[$key];
+  $pdo = db();
+  $stmt = $pdo->prepare("
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = :table AND column_name = :column
+    LIMIT 1
+  ");
+  $stmt->execute([
+    ':table' => $table,
+    ':column' => $column,
+  ]);
+  $cache[$key] = (bool)$stmt->fetchColumn();
+  return $cache[$key];
+}
+
 $path = $_SERVER['REQUEST_URI'];
 $base = '/api';
 if (str_starts_with($path, $base)) {
@@ -81,99 +100,162 @@ if ($path === '/sync') {
     'blog_categories',
     'blog_posts',
     'blog_files',
+    'deleted_rows',
   ];
 
   try {
     foreach ($tables as $table) {
       $rows = $payload[$table] ?? [];
       if (!is_array($rows) || count($rows) === 0) continue;
+      $hasUpdatedAt = table_has_column($table, 'updated_at');
+
       foreach ($rows as $r) {
+        if (!is_array($r)) continue;
         if (!$authorized) {
           if ($table === 'notes' && ((int)($r['is_private'] ?? 0) === 1)) continue;
           if ($table === 'blog_posts' && ((string)($r['status'] ?? '') === 'draft')) continue;
         }
         $cols = array_keys($r);
-        if (!in_array('id', $cols)) continue;
+        if (!in_array('id', $cols, true)) continue;
 
-        $incomingUpdated = isset($r['updated_at']) ? strtotime($r['updated_at']) : 0;
+        $incomingUpdated = 0;
+        if ($hasUpdatedAt && isset($r['updated_at'])) {
+          $incomingUpdated = strtotime((string)$r['updated_at']) ?: 0;
+        }
 
         // Prefer newer updates (prevents stale clients overwriting newer server data)
-        $stmtCheck = $pdo->prepare("SELECT id, updated_at FROM {$table} WHERE id = :id");
+        $sqlCheck = $hasUpdatedAt
+          ? "SELECT id, updated_at FROM {$table} WHERE id = :id"
+          : "SELECT id FROM {$table} WHERE id = :id";
+        $stmtCheck = $pdo->prepare($sqlCheck);
         $stmtCheck->execute([':id' => $r['id']]);
         $existing = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
         if ($existing) {
-          $existingUpdated = $existing['updated_at'] ? strtotime($existing['updated_at']) : 0;
-          if ($incomingUpdated && $existingUpdated && $existingUpdated > $incomingUpdated) {
+          $existingUpdated = 0;
+          if ($hasUpdatedAt && !empty($existing['updated_at'])) {
+            $existingUpdated = strtotime((string)$existing['updated_at']) ?: 0;
+          }
+          if ($incomingUpdated && $existingUpdated && $existingUpdated >= $incomingUpdated) {
             continue;
           }
 
-          $updates = array_filter($cols, fn($c) => $c !== 'id');
-          if (in_array('updated_at', $updates)) {
-            $updates = array_filter($updates, fn($c) => $c !== 'updated_at');
+          $updates = array_values(array_filter(
+            $cols,
+            fn($c) => $c !== 'id' && ($hasUpdatedAt || $c !== 'updated_at')
+          ));
+          if (in_array('updated_at', $updates, true)) {
+            $updates = array_values(array_filter($updates, fn($c) => $c !== 'updated_at'));
           }
-          if (count($updates) > 0) {
-            $setParts = array_map(fn($c) => "$c = :$c", $updates);
+
+          $setParts = [];
+          $params = [':id' => $r['id']];
+          foreach ($updates as $c) {
+            $setParts[] = "{$c} = :set_{$c}";
+            $params[':set_' . $c] = $r[$c] ?? null;
+          }
+          if ($hasUpdatedAt) {
             $setParts[] = "updated_at = NOW()";
-            $set = implode(',', $setParts);
-            $sqlUp = "UPDATE {$table} SET {$set} WHERE id = :id";
+          }
+          if (count($setParts) > 0) {
+            $sqlUp = "UPDATE {$table} SET " . implode(',', $setParts) . " WHERE id = :id";
             $stmtUp = $pdo->prepare($sqlUp);
-            foreach ($r as $k => $v) {
-              if ($k === 'updated_at') continue;
-              $stmtUp->bindValue(':' . $k, $v);
-            }
-            $stmtUp->execute();
+            $stmtUp->execute($params);
           }
           continue;
         }
 
-        if ($table === 'blog_categories' && in_array('name', $cols)) {
-          $stmtByName = $pdo->prepare("SELECT id, updated_at FROM blog_categories WHERE name = :name LIMIT 1");
+        if ($table === 'blog_categories' && in_array('name', $cols, true)) {
+          $sqlByName = $hasUpdatedAt
+            ? "SELECT id, updated_at FROM blog_categories WHERE name = :name LIMIT 1"
+            : "SELECT id FROM blog_categories WHERE name = :name LIMIT 1";
+          $stmtByName = $pdo->prepare($sqlByName);
           $stmtByName->execute([':name' => $r['name']]);
           $existingByName = $stmtByName->fetch(PDO::FETCH_ASSOC);
           if ($existingByName) {
-            $existingUpdated = $existingByName['updated_at'] ? strtotime($existingByName['updated_at']) : 0;
-            if ($incomingUpdated && $existingUpdated && $existingUpdated > $incomingUpdated) {
+            $existingUpdated = 0;
+            if ($hasUpdatedAt && !empty($existingByName['updated_at'])) {
+              $existingUpdated = strtotime((string)$existingByName['updated_at']) ?: 0;
+            }
+            if ($incomingUpdated && $existingUpdated && $existingUpdated >= $incomingUpdated) {
               continue;
             }
-            $updates = array_filter($cols, fn($c) => $c !== 'id');
-            if (in_array('updated_at', $updates)) {
-              $updates = array_filter($updates, fn($c) => $c !== 'updated_at');
+
+            $updates = array_values(array_filter(
+              $cols,
+              fn($c) => $c !== 'id' && ($hasUpdatedAt || $c !== 'updated_at')
+            ));
+            if (in_array('updated_at', $updates, true)) {
+              $updates = array_values(array_filter($updates, fn($c) => $c !== 'updated_at'));
             }
-            if (count($updates) > 0) {
-              $setParts = array_map(fn($c) => "$c = :$c", $updates);
+
+            $setParts = [];
+            $params = [':where_name' => $r['name']];
+            foreach ($updates as $c) {
+              $setParts[] = "{$c} = :set_{$c}";
+              $params[':set_' . $c] = $r[$c] ?? null;
+            }
+            if ($hasUpdatedAt) {
               $setParts[] = "updated_at = NOW()";
-              $set = implode(',', $setParts);
-              $sqlUp = "UPDATE {$table} SET {$set} WHERE name = :name";
+            }
+            if (count($setParts) > 0) {
+              $sqlUp = "UPDATE {$table} SET " . implode(',', $setParts) . " WHERE name = :where_name";
               $stmtUp = $pdo->prepare($sqlUp);
-              foreach ($r as $k => $v) {
-                if ($k === 'id' || $k === 'updated_at') continue;
-                $stmtUp->bindValue(':' . $k, $v);
-              }
-              $stmtUp->execute();
+              $stmtUp->execute($params);
             }
             continue;
           }
         }
 
         // INSERT if not existing
-        $colsForInsert = $cols;
-        $place = array_map(fn($c) => ':' . $c, $colsForInsert);
-        if (in_array('updated_at', $colsForInsert)) {
-          $idx = array_search('updated_at', $colsForInsert);
-          array_splice($colsForInsert, $idx, 1);
-          array_splice($place, $idx, 1);
+        $colsForInsert = array_values(array_filter(
+          $cols,
+          fn($c) => $hasUpdatedAt || $c !== 'updated_at'
+        ));
+        $place = [];
+        $params = [];
+        foreach ($colsForInsert as $c) {
+          if ($hasUpdatedAt && $c === 'updated_at') {
+            $place[] = 'NOW()';
+            continue;
+          }
+          $ph = ':ins_' . $c;
+          $place[] = $ph;
+          $params[$ph] = $r[$c] ?? null;
+        }
+        if ($hasUpdatedAt && !in_array('updated_at', $colsForInsert, true)) {
           $colsForInsert[] = 'updated_at';
           $place[] = 'NOW()';
         }
+        if (count($colsForInsert) === 0) continue;
         $sqlIn = "INSERT INTO {$table} (" . implode(',', $colsForInsert) . ") VALUES (" . implode(',', $place) . ")";
         $stmtIn = $pdo->prepare($sqlIn);
-        foreach ($r as $k => $v) {
-          if ($k === 'updated_at') continue;
-          $stmtIn->bindValue(':' . $k, $v);
-        }
-        $stmtIn->execute();
+        $stmtIn->execute($params);
       }
+    }
+  } catch (Exception $e) {
+    respond(['ok' => false, 'error' => $e->getMessage()], 500);
+  }
+
+  // Apply tombstones globally (idempotent) so deleted rows stay deleted across devices.
+  $deletableTables = [
+    'notes',
+    'list_items',
+    'files',
+    'notebooks',
+    'project_nodes',
+    'blog_categories',
+    'blog_posts',
+    'blog_files',
+  ];
+  try {
+    $tombRows = $pdo->query("SELECT table_name, row_id FROM deleted_rows")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($tombRows as $tr) {
+      $target = (string)($tr['table_name'] ?? '');
+      $rowId = (string)($tr['row_id'] ?? '');
+      if (!$rowId || !in_array($target, $deletableTables, true)) continue;
+      $stmtDel = $pdo->prepare("DELETE FROM {$target} WHERE id = :id");
+      $stmtDel->execute([':id' => $rowId]);
     }
   } catch (Exception $e) {
     respond(['ok' => false, 'error' => $e->getMessage()], 500);

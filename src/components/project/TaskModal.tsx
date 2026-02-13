@@ -128,7 +128,7 @@ export default function TaskModal(props: {
       <div className="absolute inset-0 bg-black/60" onClick={tryClose} />
 
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl border rounded bg-[#0b0b0b] p-4 shadow-lg max-h-[85vh] overflow-auto">
+        <div className="w-full max-w-2xl border rounded bg-[var(--background)] text-[var(--foreground)] p-4 shadow-lg max-h-[85vh] overflow-auto">
           <div className="flex items-center gap-2">
             <div className="font-semibold">Edit Task</div>
             <div className="ml-auto text-xs opacity-70">
@@ -200,7 +200,7 @@ export default function TaskModal(props: {
                       Clear
                     </button>
                     {showCal && (
-                      <div className="absolute z-20 mt-2 border rounded bg-black/90 p-3 w-72">
+                      <div className="absolute z-20 mt-2 panel p-3 w-72">
                         <div className="flex items-center gap-2 mb-2">
                           <button
                             className="border rounded px-2 py-1 text-xs hover:bg-white/10"

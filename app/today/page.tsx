@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AppShell from '../../src/components/shell/AppShell'
 import TodaySidebar from '../../src/components/today/TodaySidebar'
@@ -35,11 +35,10 @@ export default function Page() {
 
   const [projectMap, setProjectMap] = useState<Record<string, string>>({})
 
-    async function load() {
-      await syncNow()
-      setLoading(true)
-      const [rows, projects] = await Promise.all([
-        listNotes({ type: 'task', status: 'open', includePrivate: authed }),
+  const loadLocal = useCallback(async () => {
+    setLoading(true)
+    const [rows, projects] = await Promise.all([
+      listNotes({ type: 'task', status: 'open', includePrivate: authed }),
       listNotes({ type: 'project', status: 'all', includePrivate: authed }),
     ])
     setTasks(rows)
@@ -47,14 +46,19 @@ export default function Page() {
     for (const p of projects) map[p.id] = p.title
     setProjectMap(map)
     setLoading(false)
-  }
+  }, [authed])
+
+  const refresh = useCallback(async () => {
+    await syncNow()
+    await loadLocal()
+  }, [loadLocal])
 
   useEffect(() => {
-    load()
-    const onSync = () => load()
+    void refresh()
+    const onSync = () => void loadLocal()
     window.addEventListener('mektoub-sync-complete', onSync)
     return () => window.removeEventListener('mektoub-sync-complete', onSync)
-  }, [authed])
+  }, [loadLocal, refresh])
 
   const today = useMemo(() => new Date(), [])
   const todayStart = useMemo(() => startOfDay(today), [today])
@@ -92,14 +96,14 @@ export default function Page() {
 
   async function setTaskDone(id: string, next: 'open' | 'done') {
     await updateNote(id, { status: next })
-    await load()
+    await refresh()
   }
 
   async function planForToday(id: string) {
     const due = new Date()
     due.setHours(18, 0, 0, 0)
     await updateNote(id, { due_at: due.toISOString() })
-    await load()
+    await refresh()
   }
 
   async function duplicateToTomorrow(task: Note) {
@@ -113,7 +117,7 @@ export default function Page() {
       due_at: task.due_at ? nextDue.toISOString() : endOfDay(nextDue).toISOString(),
     })
     await updateNote(id, { priority: task.priority, urgent: task.urgent })
-    await load()
+    await refresh()
   }
 
   function projectLabel(task: Note) {

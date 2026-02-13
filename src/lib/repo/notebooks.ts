@@ -3,6 +3,7 @@
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../db'
 import type { Notebook } from '../types'
+import { markDeleted } from './tombstones'
 
 function nowIso() {
   return new Date().toISOString()
@@ -41,4 +42,5 @@ export async function deleteNotebook(id: string): Promise<void> {
   // detach notes
   await db.query(`UPDATE notes SET notebook_id = NULL WHERE notebook_id = $1;`, [id])
   await db.query(`DELETE FROM notebooks WHERE id = $1;`, [id])
+  await markDeleted('notebooks', id)
 }

@@ -15,12 +15,16 @@ export default function AutoSync() {
       }
     }
     run()
-    const onFocus = () => run()
-    document.addEventListener('visibilitychange', onFocus)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void run()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
     const id = window.setInterval(run, 60000)
     return () => {
       active = false
-      document.removeEventListener('visibilitychange', onFocus)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       window.clearInterval(id)
     }
   }, [])

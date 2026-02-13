@@ -22,8 +22,7 @@ export function useNotebooks() {
   }
 
   useEffect(() => {
-    refreshNotebooks()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void refreshNotebooks()
   }, [])
 
   async function onCreateNotebook() {

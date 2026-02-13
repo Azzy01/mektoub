@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AppShell from '../../src/components/shell/AppShell'
 import { createNote, listNotes } from '../../src/lib/repo'
@@ -50,23 +50,28 @@ export default function Page() {
   const [newPriority, setNewPriority] = useState(3)
   const [newUrgent, setNewUrgent] = useState(false)
 
+  const loadLocal = useCallback(async () => {
+    setLoading(true)
+    const rows = await listNotes({
+      type: 'task',
+      status: 'open',
+      includePrivate: authed,
+    })
+    setTasks(rows.filter((t) => !!t.due_at))
+    setLoading(false)
+  }, [authed])
+
+  const refresh = useCallback(async () => {
+    await syncNow()
+    await loadLocal()
+  }, [loadLocal])
+
   useEffect(() => {
-    async function load() {
-      await syncNow()
-      setLoading(true)
-      const rows = await listNotes({
-        type: 'task',
-        status: 'open',
-        includePrivate: authed,
-      })
-      setTasks(rows.filter((t) => !!t.due_at))
-      setLoading(false)
-    }
-    load()
-    const onSync = () => load()
+    void refresh()
+    const onSync = () => void loadLocal()
     window.addEventListener('mektoub-sync-complete', onSync)
     return () => window.removeEventListener('mektoub-sync-complete', onSync)
-  }, [authed])
+  }, [loadLocal, refresh])
 
   const range = useMemo(() => {
     if (mode === 'month') {
@@ -141,16 +146,7 @@ export default function Page() {
     setNewPriority(3)
     setNewUrgent(false)
     setCreatingFor(null)
-    await (async () => {
-      setLoading(true)
-      const rows = await listNotes({
-        type: 'task',
-        status: 'open',
-        includePrivate: authed,
-      })
-      setTasks(rows.filter((t) => !!t.due_at))
-      setLoading(false)
-    })()
+    await refresh()
   }
 
   return (
@@ -219,7 +215,7 @@ export default function Page() {
                     <div
                       key={d.toDateString()}
                       className={`group calendar-cell p-2 min-h-[120px] ${
-                        isToday ? 'ring-1 ring-white/30' : ''
+                        isToday ? 'calendar-today' : ''
                       } ${
                         mode === 'month' && !inMonth ? 'opacity-50' : ''
                       }`}
@@ -268,7 +264,7 @@ export default function Page() {
             onClick={() => setCreatingFor(null)}
           >
             <div
-              className="w-full max-w-md border rounded bg-black/90 p-4"
+              className="w-full max-w-md border rounded bg-[var(--background)] text-[var(--foreground)] p-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="font-semibold">Add task</div>

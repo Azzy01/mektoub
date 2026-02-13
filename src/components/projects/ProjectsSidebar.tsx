@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Note } from '../../lib/types'
 import { getProjectTree, listNotes } from '../../lib/repo'
@@ -14,7 +14,7 @@ export default function ProjectsSidebar() {
   const statusFilter = search.get('status') || 'open'
   const { authed } = useAuth()
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const ps = await listNotes({ type: 'project', status: 'all', includePrivate: authed })
     setProjects(ps)
     const bundles = await Promise.all(
@@ -31,11 +31,11 @@ export default function ProjectsSidebar() {
     const map: Record<string, { done: number; total: number }> = {}
     for (const [id, st] of bundles) map[id] = st
     setStats(map)
-  }
+  }, [authed])
 
   useEffect(() => {
-    refresh()
-  }, [authed])
+    void refresh()
+  }, [refresh])
 
   function onCreateProject() {
     router.push('/note?new=1&type=project&from=projects')

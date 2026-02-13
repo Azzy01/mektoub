@@ -52,7 +52,7 @@ export default function CreateNodeModal(props: {
 
       {/* modal */}
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-md border rounded bg-[#0b0b0b] p-4 shadow-lg">
+        <div className="w-full max-w-md border rounded bg-[var(--background)] text-[var(--foreground)] p-4 shadow-lg">
           <div className="flex items-center gap-2">
             <div className="font-semibold">
               Create {props.kind === 'group' ? 'Group' : 'Task'}

@@ -5,6 +5,7 @@
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../db'
 import type { ListItem } from '../types'
+import { markDeleted } from './tombstones'
 
 function nowIso() {
   return new Date().toISOString()
@@ -49,5 +50,11 @@ export async function toggleItem(id: string, done: 0 | 1): Promise<void> {
 
 export async function deleteItem(id: string): Promise<void> {
   const db = await getDb()
+  const row = await db.query(`SELECT note_id FROM list_items WHERE id = $1 LIMIT 1;`, [id])
+  const noteId = (row.rows?.[0] as { note_id?: string } | undefined)?.note_id
   await db.query(`DELETE FROM list_items WHERE id = $1;`, [id])
+  await markDeleted('list_items', id)
+  if (noteId) {
+    await db.query(`UPDATE notes SET updated_at = $1 WHERE id = $2;`, [nowIso(), noteId])
+  }
 }

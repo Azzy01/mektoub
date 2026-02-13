@@ -2,8 +2,9 @@
 
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../db'
-import type { Note, NoteType, ProjectNodeKind, ProjectNodeRow, ProjectTaskNode } from '../types'
+import type { Note, NoteType, ProjectNodeRow } from '../types'
 import { parseTags } from './tags'
+import { markManyDeleted } from './tombstones'
 
 function nowIso() {
   return new Date().toISOString()
@@ -218,6 +219,7 @@ export async function deleteProjectNode(nodeId: string): Promise<void> {
   // Build placeholders: $1,$2...
   const placeholders = ids.map((_, i) => `$${i + 1}`).join(',')
   await db.query(`DELETE FROM project_nodes WHERE id IN (${placeholders});`, ids)
+  await markManyDeleted(ids.map((rowId) => ({ table: 'project_nodes' as const, rowId })))
 }
 
 
@@ -228,6 +230,15 @@ export async function deleteTaskNodeAndNote(nodeId: string): Promise<void> {
   const res = await db.query(`SELECT note_id FROM project_nodes WHERE id = $1 AND kind='task' LIMIT 1;`, [nodeId])
   const noteId = (res.rows?.[0] as any)?.note_id as string | undefined
 
+  const fileIds: string[] = []
+  const itemIds: string[] = []
+  if (noteId) {
+    const filesRes = await db.query(`SELECT id FROM files WHERE note_id = $1;`, [noteId])
+    const listRes = await db.query(`SELECT id FROM list_items WHERE note_id = $1;`, [noteId])
+    fileIds.push(...(filesRes.rows as Array<{ id: string }>).map((r) => r.id))
+    itemIds.push(...(listRes.rows as Array<{ id: string }>).map((r) => r.id))
+  }
+
   // delete node
   await db.query(`DELETE FROM project_nodes WHERE id = $1;`, [nodeId])
 
@@ -237,6 +248,13 @@ export async function deleteTaskNodeAndNote(nodeId: string): Promise<void> {
     await db.query(`DELETE FROM list_items WHERE note_id = $1;`, [noteId])
     await db.query(`DELETE FROM notes WHERE id = $1;`, [noteId])
   }
+
+  await markManyDeleted([
+    { table: 'project_nodes' as const, rowId: nodeId },
+    ...fileIds.map((rowId) => ({ table: 'files' as const, rowId })),
+    ...itemIds.map((rowId) => ({ table: 'list_items' as const, rowId })),
+    ...(noteId ? [{ table: 'notes' as const, rowId: noteId }] : []),
+  ])
 }
 
 export async function moveProjectNode(params: {

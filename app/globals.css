@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0b0f14;
-  --foreground: #e6edf3;
-  --muted: #9aa4b2;
-  --panel: rgba(255, 255, 255, 0.03);
-  --panel-strong: rgba(255, 255, 255, 0.06);
-  --border: rgba(255, 255, 255, 0.12);
-  --accent: #38b2ac;
-  color-scheme: dark light;
+  --background: #f7f7f2;
+  --foreground: #1a1d21;
+  --muted: #6b7280;
+  --panel: rgba(0, 0, 0, 0.04);
+  --panel-strong: rgba(0, 0, 0, 0.08);
+  --border: rgba(0, 0, 0, 0.12);
+  --accent: #0f766e;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -18,15 +18,16 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: light) {
+@media (prefers-color-scheme: dark) {
   :root {
-    --background: #f7f7f2;
-    --foreground: #1a1d21;
-    --muted: #6b7280;
-    --panel: rgba(0, 0, 0, 0.04);
-    --panel-strong: rgba(0, 0, 0, 0.08);
-    --border: rgba(0, 0, 0, 0.12);
-    --accent: #0f766e;
+    --background: #0b0f14;
+    --foreground: #e6edf3;
+    --muted: #9aa4b2;
+    --panel: rgba(255, 255, 255, 0.03);
+    --panel-strong: rgba(255, 255, 255, 0.06);
+    --border: rgba(255, 255, 255, 0.12);
+    --accent: #38b2ac;
+    color-scheme: dark;
   }
 }
 
@@ -91,22 +92,26 @@ body {
 }
 
 .calendar-cell {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.05);
   border: 1px solid var(--border);
   border-radius: 14px;
   color: var(--foreground);
 }
 
 .calendar-cell:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.08);
 }
 
-@media (prefers-color-scheme: light) {
+.calendar-today {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 60%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
   .calendar-cell {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(255, 255, 255, 0.08);
   }
   .calendar-cell:hover {
-    background: rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.12);
   }
 }
 

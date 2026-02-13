@@ -5,6 +5,7 @@
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../db'
 import type { FileRow } from '../types'
+import { markDeleted } from './tombstones'
 
 function nowIso() {
   return new Date().toISOString()
@@ -37,7 +38,13 @@ export async function listFiles(noteId: string): Promise<FileRow[]> {
 
 export async function deleteFile(id: string): Promise<void> {
   const db = await getDb()
+  const res = await db.query(`SELECT note_id FROM files WHERE id = $1 LIMIT 1;`, [id])
+  const noteId = (res.rows?.[0] as { note_id?: string } | undefined)?.note_id
   await db.query(`DELETE FROM files WHERE id = $1;`, [id])
+  await markDeleted('files', id)
+  if (noteId) {
+    await db.query(`UPDATE notes SET updated_at = $1 WHERE id = $2;`, [nowIso(), noteId])
+  }
 }
 
 async function fileToBase64(file: File): Promise<string> {

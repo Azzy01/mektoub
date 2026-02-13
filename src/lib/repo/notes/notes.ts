@@ -7,6 +7,7 @@ import { stringifyTags } from '../tags'
 import type { ListNotesParams } from './types'
 import { buildListNotesWhere } from './queries'
 import { mapNoteRow } from './mapper'
+import { markManyDeleted } from '../tombstones'
 
 function nowIso() {
   return new Date().toISOString()
@@ -143,9 +144,27 @@ export async function updateNote(
 
 export async function deleteNote(id: string): Promise<void> {
   const db = await getDb()
+
+  const filesRes = await db.query(`SELECT id FROM files WHERE note_id = $1;`, [id])
+  const listItemsRes = await db.query(`SELECT id FROM list_items WHERE note_id = $1;`, [id])
+  const nodeRes = await db.query(`SELECT id FROM project_nodes WHERE note_id = $1 OR project_id = $1;`, [id])
+
+  const fileIds = (filesRes.rows as Array<{ id: string }>).map((r) => r.id)
+  const listItemIds = (listItemsRes.rows as Array<{ id: string }>).map((r) => r.id)
+  const nodeIds = (nodeRes.rows as Array<{ id: string }>).map((r) => r.id)
+
   await db.query(`DELETE FROM files WHERE note_id = $1;`, [id])
   await db.query(`DELETE FROM list_items WHERE note_id = $1;`, [id])
+  await db.query(`DELETE FROM project_nodes WHERE note_id = $1 OR project_id = $1;`, [id])
+  await db.query(`UPDATE notes SET project_id = NULL, updated_at = $1 WHERE project_id = $2;`, [nowIso(), id])
   await db.query(`DELETE FROM notes WHERE id = $1;`, [id])
+
+  await markManyDeleted([
+    ...fileIds.map((rowId) => ({ table: 'files' as const, rowId })),
+    ...listItemIds.map((rowId) => ({ table: 'list_items' as const, rowId })),
+    ...nodeIds.map((rowId) => ({ table: 'project_nodes' as const, rowId })),
+    { table: 'notes' as const, rowId: id },
+  ])
 }
 
 export async function setPinned(id: string, pinned: 0 | 1): Promise<void> {

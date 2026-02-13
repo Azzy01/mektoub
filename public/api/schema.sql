@@ -92,3 +92,41 @@ CREATE TABLE IF NOT EXISTS blog_files (
   role TEXT NOT NULL DEFAULT 'inline',
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS deleted_rows (
+  id TEXT PRIMARY KEY,
+  table_name TEXT NOT NULL,
+  row_id TEXT NOT NULL,
+  deleted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.relkind = 'i'
+      AND c.relname = 'idx_deleted_rows_table_row'
+      AND n.nspname = 'public'
+  ) THEN
+    CREATE UNIQUE INDEX idx_deleted_rows_table_row ON deleted_rows(table_name, row_id);
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.relkind = 'i'
+      AND c.relname = 'idx_deleted_rows_updated_at'
+      AND n.nspname = 'public'
+  ) THEN
+    CREATE INDEX idx_deleted_rows_updated_at ON deleted_rows(updated_at);
+  END IF;
+END
+$$;
