@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Note, NoteStatus, NoteType } from '../../../lib/types'
 import { listNotes } from '../../../lib/repo'
 import { useAuth } from '../../../lib/auth'
+import { syncNow } from '../../../lib/sync'
 import { collectTopTags } from '../utils'
 
 export function useNotesList(
@@ -36,7 +37,13 @@ export function useNotesList(
   }
 
   useEffect(() => {
-    refreshNotes()
+    ;(async () => {
+      await syncNow()
+      refreshNotes()
+    })()
+    const onSync = () => refreshNotes()
+    window.addEventListener('mektoub-sync-complete', onSync)
+    return () => window.removeEventListener('mektoub-sync-complete', onSync)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, type, status, urgentOnly, tagFilter, notebookId, authed])
 

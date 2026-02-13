@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { normTags } from './utils'
 import type { FileRow, ListItem, Note, NoteStatus } from '../../lib/types'
 import { createNote, deleteNote, getNote, listFiles, listItems, updateNote } from '../../lib/repo'
+import { syncNow } from '../../lib/sync'
 import { useAuth } from '../../lib/auth'
 import NoteHeader from './NoteHeader'
 import NoteEditor from './NoteEditor'
@@ -199,6 +200,7 @@ export default function NotePage({ id }: { id: string }) {
           is_private: patch.is_private ?? 0,
         })
         setDirty(false)
+        await syncNow()
         const back = returnPath()
         if (back) {
           router.push(back)
@@ -210,6 +212,7 @@ export default function NotePage({ id }: { id: string }) {
       }
       await updateNote(n.id, patch)
       setDirty(false)
+      await syncNow()
       const back = returnPath()
       if (back) {
         router.push(back)

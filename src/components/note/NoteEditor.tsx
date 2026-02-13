@@ -44,9 +44,11 @@ export default function NoteEditor(props: {
     const first = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1)
     const last = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0)
     const start = new Date(first)
-    start.setDate(first.getDate() - first.getDay())
+    const startOffset = (first.getDay() + 6) % 7
+    start.setDate(first.getDate() - startOffset)
     const end = new Date(last)
-    end.setDate(last.getDate() + (6 - last.getDay()))
+    const endOffset = (last.getDay() + 6) % 7
+    end.setDate(last.getDate() + (6 - endOffset))
     const arr: Date[] = []
     const cur = new Date(start)
     while (cur <= end) {
@@ -167,7 +169,7 @@ export default function NoteEditor(props: {
                   </div>
 
                   <div className="grid grid-cols-7 gap-1 text-xs text-center opacity-70 mb-1">
-                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                    {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((d) => (
                       <div key={d}>{d}</div>
                     ))}
                   </div>

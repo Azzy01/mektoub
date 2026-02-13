@@ -8,6 +8,7 @@
   --panel-strong: rgba(255, 255, 255, 0.06);
   --border: rgba(255, 255, 255, 0.12);
   --accent: #38b2ac;
+  color-scheme: dark light;
 }
 
 @theme inline {
@@ -36,6 +37,8 @@ body {
     var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), "IBM Plex Sans", "Inter", system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 * {
@@ -72,4 +75,52 @@ body {
   border-radius: 999px;
   padding: 2px 8px;
   font-size: 12px;
+}
+
+.calendar-scroll {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.calendar-grid {
+  min-width: 720px;
+}
+
+.calendar-head {
+  color: var(--muted);
+}
+
+.calendar-cell {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--foreground);
+}
+
+.calendar-cell:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (prefers-color-scheme: light) {
+  .calendar-cell {
+    background: rgba(0, 0, 0, 0.05);
+  }
+  .calendar-cell:hover {
+    background: rgba(0, 0, 0, 0.08);
+  }
+}
+
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+
+  .calendar-grid {
+    min-width: 640px;
+  }
 }

@@ -23,14 +23,16 @@ function Tab({ href, label }: { href: string; label: string }) {
 export default function TopNav() {
   const { authed } = useAuth()
   return (
-    <div className="flex items-center gap-2 mb-4">
+    <div className="flex flex-wrap items-center gap-2 mb-4">
       <div className="font-semibold text-lg mr-2 tracking-wide">Mektoub</div>
-      <Tab href="/" label="Main" />
-      <Tab href="/today" label="Today" />
-      <Tab href="/calendar" label="Calendar" />
-      <Tab href="/projects" label="Projects" />
-      <Tab href="/blog" label="Blog" />
-      <div className="ml-auto flex items-center gap-2 text-xs">
+      <div className="flex flex-wrap gap-2">
+        <Tab href="/" label="Main" />
+        <Tab href="/today" label="Today" />
+        <Tab href="/calendar" label="Calendar" />
+        <Tab href="/projects" label="Projects" />
+        <Tab href="/blog" label="Blog" />
+      </div>
+      <div className="ml-auto flex flex-wrap items-center gap-2 text-xs">
         {authed ? (
           <button
             className="border rounded px-2 py-1 hover:bg-white/10"
@@ -56,14 +58,7 @@ export default function TopNav() {
             Unlock
           </button>
         )}
-        {authed && (
-          <button
-            className="border rounded px-2 py-1 hover:bg-white/10"
-            onClick={() => syncNow()}
-          >
-            Sync
-          </button>
-        )}
+        <span className="opacity-60">{authed ? 'Unlocked' : 'Public'}</span>
         <span className="opacity-60">Offline-first</span>
       </div>
     </div>

@@ -75,7 +75,10 @@ export default function NoteCard(props: {
             </div>
           ) : null}
 
-          <div className="mt-2 text-xs opacity-70">Priority: P{note.priority ?? 3}</div>
+          <div className="mt-2 flex items-center text-xs opacity-70">
+            <span>Priority: P{note.priority ?? 3}</span>
+            <span className="ml-auto">{note.created_at ? new Date(note.created_at).toLocaleDateString() : ''}</span>
+          </div>
         </div>
 
         <div className="flex flex-col items-end gap-2">

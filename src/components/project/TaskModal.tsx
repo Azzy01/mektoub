@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Note, NoteStatus } from '../../lib/types'
 import { getNote, updateNote } from '../../lib/repo'
+import { syncNow } from '../../lib/sync'
 import TagsEditor from '../note/TagsEditor'
-import { normTags, toLocalInput } from '../note/utils'
+import { normTags } from '../note/utils'
 
 type NotePatch = Partial<
   Pick<Note, 'title' | 'content' | 'status' | 'due_at' | 'tags' | 'priority' | 'urgent'>
@@ -22,6 +23,26 @@ export default function TaskModal(props: {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showCal, setShowCal] = useState(false)
+  const [calMonth, setCalMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+
+  const days = useMemo(() => {
+    const first = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1)
+    const last = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0)
+    const start = new Date(first)
+    const startOffset = (first.getDay() + 6) % 7
+    start.setDate(first.getDate() - startOffset)
+    const end = new Date(last)
+    const endOffset = (last.getDay() + 6) % 7
+    end.setDate(last.getDate() + (6 - endOffset))
+    const arr: Date[] = []
+    const cur = new Date(start)
+    while (cur <= end) {
+      arr.push(new Date(cur))
+      cur.setDate(cur.getDate() + 1)
+    }
+    return arr
+  }, [calMonth])
 
   useEffect(() => {
     if (!props.open || !props.noteId) return
@@ -87,6 +108,7 @@ export default function TaskModal(props: {
         urgent: (draft.urgent ?? 0) as 0 | 1,
       }
       await updateNote(note.id, patch)
+      await syncNow()
       await props.onSaved()
       props.onClose()
     } catch (e: any) {
@@ -159,15 +181,81 @@ export default function TaskModal(props: {
 
                 <div className="md:col-span-2">
                   <label className="text-xs opacity-70">Due</label>
-                  <input
-                    className="mt-1 w-full border rounded px-3 py-2"
-                    type="datetime-local"
-                    value={draft.due_at ? toLocalInput(draft.due_at) : ''}
-                    onChange={(e) => {
-                      const iso = e.target.value ? new Date(e.target.value).toISOString() : null
-                      setDraft((d) => ({ ...d, due_at: iso }))
-                    }}
-                  />
+                  <div className="relative mt-1">
+                    <button
+                      className="w-full border rounded px-3 py-2 text-sm text-left hover:bg-white/5"
+                      onClick={() => setShowCal((v) => !v)}
+                      type="button"
+                    >
+                      {draft.due_at ? new Date(draft.due_at).toLocaleDateString() : 'No due date'}
+                    </button>
+                    <button
+                      className="ml-2 border rounded px-2 py-1 text-xs hover:bg-white/5"
+                      type="button"
+                      onClick={() => {
+                        setDraft((d) => ({ ...d, due_at: null }))
+                        setShowCal(false)
+                      }}
+                    >
+                      Clear
+                    </button>
+                    {showCal && (
+                      <div className="absolute z-20 mt-2 border rounded bg-black/90 p-3 w-72">
+                        <div className="flex items-center gap-2 mb-2">
+                          <button
+                            className="border rounded px-2 py-1 text-xs hover:bg-white/10"
+                            onClick={() =>
+                              setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))
+                            }
+                          >
+                            ←
+                          </button>
+                          <div className="flex-1 text-center text-sm font-medium">
+                            {calMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                          </div>
+                          <button
+                            className="border rounded px-2 py-1 text-xs hover:bg-white/10"
+                            onClick={() =>
+                              setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))
+                            }
+                          >
+                            →
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1 text-xs text-center opacity-70 mb-1">
+                          {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((d) => (
+                            <div key={d}>{d}</div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-7 gap-1 text-xs">
+                          {days.map((d) => {
+                            const isCurrentMonth = d.getMonth() === calMonth.getMonth()
+                            const isSelected =
+                              draft.due_at && new Date(draft.due_at).toDateString() === d.toDateString()
+                            return (
+                              <button
+                                key={d.toISOString()}
+                                className={`rounded px-2 py-1 ${
+                                  isSelected
+                                    ? 'bg-white/20 border border-white/30'
+                                    : 'border border-white/10 hover:bg-white/10'
+                                } ${isCurrentMonth ? '' : 'opacity-40'}`}
+                                onClick={() => {
+                                  const due = new Date(d)
+                                  due.setHours(18, 0, 0, 0)
+                                  setDraft((prev) => ({ ...prev, due_at: due.toISOString() }))
+                                  setShowCal(false)
+                                }}
+                              >
+                                {d.getDate()}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>

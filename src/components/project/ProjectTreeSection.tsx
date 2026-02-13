@@ -13,6 +13,7 @@ import {
 import CreateNodeModal, { CreateKind } from './CreateNodeModal'
 import TaskModal from './TaskModal'
 import { deleteTaskNodeAndNote } from '../../lib/repo'
+import { syncNow } from '../../lib/sync'
 
 
 type TreeItem =
@@ -119,6 +120,7 @@ export default function ProjectTreeSection(props: { projectId: string }) {
   async function handleCreate(title: string) {
     if (modalKind === 'group') {
       const id = await createProjectGroup({ projectId: props.projectId, parentId: modalParentId, title })
+      await syncNow()
       // auto-expand the new group parent chain
       if (modalParentId) {
         setExpanded((prev) => new Set(prev).add(modalParentId))
@@ -135,6 +137,7 @@ export default function ProjectTreeSection(props: { projectId: string }) {
       parentId: modalParentId,
       title,
     })
+    await syncNow()
     await reload()
     setTaskModalNoteId(noteId)
     setTaskModalNodeId(nodeId)
@@ -195,15 +198,16 @@ export default function ProjectTreeSection(props: { projectId: string }) {
           <div
             className="text-xs opacity-70 border border-dashed rounded px-2 py-2"
             onDragOver={(e) => e.preventDefault()}
-            onDrop={async (e) => {
-              e.preventDefault()
-              const nodeId = e.dataTransfer.getData('nodeId')
-              const kind = e.dataTransfer.getData('kind')
-              if (!nodeId || kind !== 'task') return
-              await moveProjectNode({ nodeId, newParentId: null })
-              await reload()
-            }}
-          >
+                    onDrop={async (e) => {
+                      e.preventDefault()
+                      const nodeId = e.dataTransfer.getData('nodeId')
+                      const kind = e.dataTransfer.getData('kind')
+                      if (!nodeId || kind !== 'task') return
+                      await moveProjectNode({ nodeId, newParentId: null })
+                      await syncNow()
+                      await reload()
+                    }}
+                  >
             Drop here to move task to Project root
           </div>
           {items.map((it) => {
@@ -224,6 +228,7 @@ export default function ProjectTreeSection(props: { projectId: string }) {
                     const kind = e.dataTransfer.getData('kind')
                     if (!nodeId || kind !== 'task') return
                     await moveProjectNode({ nodeId, newParentId: it.node.id })
+                    await syncNow()
                     await reload()
                   }}
                 >
@@ -258,6 +263,7 @@ export default function ProjectTreeSection(props: { projectId: string }) {
                         const name = prompt('Rename group:', it.node.title)
                         if (!name) return
                         await renameProjectGroup(it.node.id, name)
+                        await syncNow()
                         await reload()
                       }}
                       title="Rename"
@@ -269,6 +275,7 @@ export default function ProjectTreeSection(props: { projectId: string }) {
                       onClick={async () => {
                         if (!confirm(`Delete group "${it.node.title}" and its content structure?`)) return
                         await deleteProjectNode(it.node.id)
+                        await syncNow()
                         await reload()
                       }}
                       title="Delete"
@@ -330,6 +337,7 @@ export default function ProjectTreeSection(props: { projectId: string }) {
             ? async () => {
                 // delete node + note
                 await deleteTaskNodeAndNote(taskModalNodeId)
+                await syncNow()
               }
             : undefined
         }

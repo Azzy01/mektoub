@@ -9,6 +9,7 @@ import NotesList from './NotesList'
 import TagChips from './TagChips'
 import type { useNotebooks } from './hooks/useNotebooks'
 import type { useNotesList } from './hooks/useNotesList'
+import { syncNow } from '../../lib/sync'
 
 export default function Home(props: {
   nb: ReturnType<typeof useNotebooks>
@@ -66,14 +67,17 @@ export default function Home(props: {
         notes={nl.notes}
         onTogglePin={async (id, nextPinned) => {
           await setPinned(id, nextPinned)
+          await syncNow()
           await nl.refreshNotes()
         }}
         onDelete={async (id) => {
           await deleteNote(id)
+          await syncNow()
           await nl.refreshNotes()
         }}
         onStatusChange={async (id, nextStatus) => {
           await updateNote(id, { status: nextStatus })
+          await syncNow()
           await nl.refreshNotes()
         }}
       />

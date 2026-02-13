@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AppShell from '../../src/components/shell/AppShell'
 import { createNote, listNotes } from '../../src/lib/repo'
+import { syncNow } from '../../src/lib/sync'
 import type { Note } from '../../src/lib/types'
 import { useAuth } from '../../src/lib/auth'
 
@@ -51,6 +52,7 @@ export default function Page() {
 
   useEffect(() => {
     async function load() {
+      await syncNow()
       setLoading(true)
       const rows = await listNotes({
         type: 'task',
@@ -61,6 +63,9 @@ export default function Page() {
       setLoading(false)
     }
     load()
+    const onSync = () => load()
+    window.addEventListener('mektoub-sync-complete', onSync)
+    return () => window.removeEventListener('mektoub-sync-complete', onSync)
   }, [authed])
 
   const range = useMemo(() => {
@@ -129,6 +134,7 @@ export default function Page() {
       priority: newPriority,
       urgent: newUrgent ? 1 : 0,
     })
+    await syncNow()
     setNewTitle('')
     setNewContent('')
     setNewTags('')
@@ -195,51 +201,64 @@ export default function Page() {
         {loading && <div className="border rounded p-4 opacity-70">Loading…</div>}
 
         {!loading && (
-          <div className="grid gap-2 grid-cols-7">
-            {days.map((d) => {
-              const isToday = sameDay(d, new Date())
-              const inMonth = d.getMonth() === anchor.getMonth()
-              const list = tasksByDay[d.toDateString()] || []
-              return (
-                <div
-                  key={d.toDateString()}
-                  className={`group border rounded p-2 min-h-[120px] ${isToday ? 'bg-white/10 border-white/30' : ''} ${
-                    mode === 'month' && !inMonth ? 'opacity-50' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="text-xs opacity-70">{formatDay(d)}</div>
-                    <button
-                      className="ml-auto text-xs border rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
-                      onClick={() => {
-                        setCreatingFor(d)
-                        setNewTitle('')
-                        setNewContent('')
-                        setNewTags('')
-                        setNewPriority(3)
-                        setNewUrgent(false)
-                      }}
-                      title="Add task"
+          <div className="space-y-2 calendar-scroll">
+            <div className="calendar-grid">
+              <div className="grid grid-cols-7 gap-2 text-xs calendar-head">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+                  <div key={d} className="text-center">
+                    {d}
+                  </div>
+                ))}
+              </div>
+              <div className="grid gap-2 grid-cols-7 mt-2">
+                {days.map((d) => {
+                  const isToday = sameDay(d, new Date())
+                  const inMonth = d.getMonth() === anchor.getMonth()
+                  const list = tasksByDay[d.toDateString()] || []
+                  return (
+                    <div
+                      key={d.toDateString()}
+                      className={`group calendar-cell p-2 min-h-[120px] ${
+                        isToday ? 'ring-1 ring-white/30' : ''
+                      } ${
+                        mode === 'month' && !inMonth ? 'opacity-50' : ''
+                      }`}
                     >
-                      +
-                    </button>
-                  </div>
-                  <div className="mt-2 space-y-1">
-                    {list.length === 0 && <div className="text-xs opacity-40">—</div>}
-                    {list.map((t) => (
-                      <button
-                        key={t.id}
-                        className="w-full text-left text-xs border rounded px-2 py-1 hover:bg-white/10 truncate"
-                        onClick={() => router.push(`/note?id=${t.id}&from=calendar`)}
-                        title={t.title}
-                      >
-                        {t.title}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs opacity-80">{formatDay(d)}</div>
+                        <button
+                          className="ml-auto text-xs border rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
+                          onClick={() => {
+                            setCreatingFor(d)
+                            setNewTitle('')
+                            setNewContent('')
+                            setNewTags('')
+                            setNewPriority(3)
+                            setNewUrgent(false)
+                          }}
+                          title="Add task"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {list.length === 0 && <div className="text-xs opacity-40">—</div>}
+                        {list.map((t) => (
+                          <button
+                            key={t.id}
+                            className="w-full text-left text-xs border rounded px-2 py-1 hover:bg-white/10 truncate"
+                            onClick={() => router.push(`/note?id=${t.id}&from=calendar`)}
+                            title={t.title}
+                          >
+                            {t.title}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         )}
 

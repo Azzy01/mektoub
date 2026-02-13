@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import AppShell from '../../src/components/shell/AppShell'
 import TodaySidebar from '../../src/components/today/TodaySidebar'
 import { createNote, listNotes, updateNote } from '../../src/lib/repo'
+import { syncNow } from '../../src/lib/sync'
 import { useAuth } from '../../src/lib/auth'
 import type { Note } from '../../src/lib/types'
 
@@ -34,10 +35,11 @@ export default function Page() {
 
   const [projectMap, setProjectMap] = useState<Record<string, string>>({})
 
-  async function load() {
-    setLoading(true)
-    const [rows, projects] = await Promise.all([
-      listNotes({ type: 'task', status: 'open', includePrivate: authed }),
+    async function load() {
+      await syncNow()
+      setLoading(true)
+      const [rows, projects] = await Promise.all([
+        listNotes({ type: 'task', status: 'open', includePrivate: authed }),
       listNotes({ type: 'project', status: 'all', includePrivate: authed }),
     ])
     setTasks(rows)
@@ -49,6 +51,9 @@ export default function Page() {
 
   useEffect(() => {
     load()
+    const onSync = () => load()
+    window.addEventListener('mektoub-sync-complete', onSync)
+    return () => window.removeEventListener('mektoub-sync-complete', onSync)
   }, [authed])
 
   const today = useMemo(() => new Date(), [])

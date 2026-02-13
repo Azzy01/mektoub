@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import type { Note, ProjectNodeRow } from '../../lib/types'
 import { createTaskInProject, getProjectTree, listNotes, updateNote } from '../../lib/repo'
 import { useAuth } from '../../lib/auth'
+import { syncNow } from '../../lib/sync'
 
 type ProjectBundle = {
   project: Note
@@ -64,6 +65,7 @@ export default function ProjectsSection() {
 
   async function load() {
     setLoading(true)
+    await syncNow()
     // load all projects
     const ps = await listNotes({ type: 'project', status: 'all', includePrivate: authed })
 
@@ -183,6 +185,7 @@ export default function ProjectsSection() {
                     onChange={async (e) => {
                       e.stopPropagation()
                       await updateNote(b.project.id, { status: e.target.value as Note['status'] })
+                      await syncNow()
                       await load()
                     }}
                   >
@@ -217,6 +220,7 @@ export default function ProjectsSection() {
                         const title = (quickAdd[b.project.id] || '').trim()
                         if (!title) return
                         await createTaskInProject({ projectId: b.project.id, title })
+                        await syncNow()
                         setQuickAdd((prev) => ({ ...prev, [b.project.id]: '' }))
                         await load()
                       }}
@@ -227,6 +231,7 @@ export default function ProjectsSection() {
                         const title = (quickAdd[b.project.id] || '').trim()
                         if (!title) return
                         await createTaskInProject({ projectId: b.project.id, title })
+                        await syncNow()
                         setQuickAdd((prev) => ({ ...prev, [b.project.id]: '' }))
                         await load()
                       }}
@@ -240,6 +245,7 @@ export default function ProjectsSection() {
                     taskNotesById={b.taskNotesById}
                     onStatusChange={async (id, nextStatus) => {
                       await updateNote(id, { status: nextStatus })
+                      await syncNow()
                       await load()
                     }}
                   />
