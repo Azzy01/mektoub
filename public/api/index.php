@@ -43,9 +43,6 @@ function token_valid($token) {
 }
 
 function table_has_column($table, $column) {
-  static $cache = [];
-  $key = $table . '.' . $column;
-  if (array_key_exists($key, $cache)) return $cache[$key];
   $pdo = db();
   $stmt = $pdo->prepare("
     SELECT 1
@@ -57,8 +54,27 @@ function table_has_column($table, $column) {
     ':table' => $table,
     ':column' => $column,
   ]);
-  $cache[$key] = (bool)$stmt->fetchColumn();
-  return $cache[$key];
+  return (bool)$stmt->fetchColumn();
+}
+
+function table_sync_column($table) {
+  if (table_has_column($table, 'updated_at')) return 'updated_at';
+  if (table_has_column($table, 'created_at')) return 'created_at';
+  return null;
+}
+
+function ensure_sync_schema() {
+  $pdo = db();
+
+  if (!table_has_column('notebooks', 'updated_at')) {
+    $pdo->exec("ALTER TABLE notebooks ADD COLUMN updated_at TEXT");
+    $pdo->exec("UPDATE notebooks SET updated_at = created_at WHERE updated_at IS NULL");
+  }
+
+  if (!table_has_column('blog_categories', 'updated_at')) {
+    $pdo->exec("ALTER TABLE blog_categories ADD COLUMN updated_at TEXT");
+    $pdo->exec("UPDATE blog_categories SET updated_at = created_at WHERE updated_at IS NULL");
+  }
 }
 
 $path = $_SERVER['REQUEST_URI'];
@@ -83,12 +99,22 @@ if ($path === '/auth') {
 }
 
 if ($path === '/sync') {
+  ensure_sync_schema();
+
   $token = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
   $token = str_replace('Bearer ', '', $token);
   $authorized = token_valid($token);
 
   $in = json_input();
   $payload = $in['data'] ?? [];
+  $clientSyncAt = null;
+  if (isset($in['clientSyncAt']) && is_string($in['clientSyncAt'])) {
+    $parsed = strtotime($in['clientSyncAt']);
+    if ($parsed !== false) {
+      $clientSyncAt = gmdate('c', $parsed);
+    }
+  }
+  $serverSyncAt = gmdate('c');
   $pdo = db();
 
   $tables = [
@@ -103,8 +129,30 @@ if ($path === '/sync') {
     'deleted_rows',
   ];
 
+  $publicReadableTables = [
+    'notes',
+    'blog_categories',
+    'blog_posts',
+    'deleted_rows',
+  ];
+  $publicWritableTables = [
+    'notes',
+    'blog_categories',
+    'blog_posts',
+    'deleted_rows',
+  ];
+  $publicDeletedTables = [
+    'notes',
+    'blog_categories',
+    'blog_posts',
+  ];
+
   try {
     foreach ($tables as $table) {
+      if (!$authorized && !in_array($table, $publicWritableTables, true)) {
+        continue;
+      }
+
       $rows = $payload[$table] ?? [];
       if (!is_array($rows) || count($rows) === 0) continue;
       $hasUpdatedAt = table_has_column($table, 'updated_at');
@@ -114,6 +162,10 @@ if ($path === '/sync') {
         if (!$authorized) {
           if ($table === 'notes' && ((int)($r['is_private'] ?? 0) === 1)) continue;
           if ($table === 'blog_posts' && ((string)($r['status'] ?? '') === 'draft')) continue;
+          if ($table === 'deleted_rows') {
+            $target = (string)($r['table_name'] ?? '');
+            if (!in_array($target, $publicDeletedTables, true)) continue;
+          }
         }
         $cols = array_keys($r);
         if (!in_array('id', $cols, true)) continue;
@@ -155,7 +207,8 @@ if ($path === '/sync') {
             $params[':set_' . $c] = $r[$c] ?? null;
           }
           if ($hasUpdatedAt) {
-            $setParts[] = "updated_at = NOW()";
+            $setParts[] = "updated_at = :server_updated_at";
+            $params[':server_updated_at'] = $serverSyncAt;
           }
           if (count($setParts) > 0) {
             $sqlUp = "UPDATE {$table} SET " . implode(',', $setParts) . " WHERE id = :id";
@@ -196,7 +249,8 @@ if ($path === '/sync') {
               $params[':set_' . $c] = $r[$c] ?? null;
             }
             if ($hasUpdatedAt) {
-              $setParts[] = "updated_at = NOW()";
+              $setParts[] = "updated_at = :server_updated_at";
+              $params[':server_updated_at'] = $serverSyncAt;
             }
             if (count($setParts) > 0) {
               $sqlUp = "UPDATE {$table} SET " . implode(',', $setParts) . " WHERE name = :where_name";
@@ -210,22 +264,19 @@ if ($path === '/sync') {
         // INSERT if not existing
         $colsForInsert = array_values(array_filter(
           $cols,
-          fn($c) => $hasUpdatedAt || $c !== 'updated_at'
+          fn($c) => !$hasUpdatedAt || $c !== 'updated_at'
         ));
         $place = [];
         $params = [];
         foreach ($colsForInsert as $c) {
-          if ($hasUpdatedAt && $c === 'updated_at') {
-            $place[] = 'NOW()';
-            continue;
-          }
           $ph = ':ins_' . $c;
           $place[] = $ph;
           $params[$ph] = $r[$c] ?? null;
         }
-        if ($hasUpdatedAt && !in_array('updated_at', $colsForInsert, true)) {
+        if ($hasUpdatedAt) {
           $colsForInsert[] = 'updated_at';
-          $place[] = 'NOW()';
+          $place[] = ':server_updated_at';
+          $params[':server_updated_at'] = $serverSyncAt;
         }
         if (count($colsForInsert) === 0) continue;
         $sqlIn = "INSERT INTO {$table} (" . implode(',', $colsForInsert) . ") VALUES (" . implode(',', $place) . ")";
@@ -254,6 +305,7 @@ if ($path === '/sync') {
       $target = (string)($tr['table_name'] ?? '');
       $rowId = (string)($tr['row_id'] ?? '');
       if (!$rowId || !in_array($target, $deletableTables, true)) continue;
+      if (!$authorized && !in_array($target, $publicDeletedTables, true)) continue;
       $stmtDel = $pdo->prepare("DELETE FROM {$target} WHERE id = :id");
       $stmtDel->execute([':id' => $rowId]);
     }
@@ -261,26 +313,50 @@ if ($path === '/sync') {
     respond(['ok' => false, 'error' => $e->getMessage()], 500);
   }
 
-  // return full snapshot
+  // Return a delta snapshot using the client cursor. If no cursor is provided,
+  // this acts as a full snapshot bootstrap.
   $out = [];
   foreach ($tables as $table) {
-    if ($authorized) {
-      $stmt = $pdo->query("SELECT * FROM {$table}");
-      $out[$table] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } else {
+    if (!$authorized && !in_array($table, $publicReadableTables, true)) {
+      $out[$table] = [];
+      continue;
+    }
+
+    $where = [];
+    $params = [];
+    $syncColumn = table_sync_column($table);
+
+    if (!$authorized) {
       if ($table === 'notes') {
-        $stmt = $pdo->query("SELECT * FROM notes WHERE is_private = 0");
-        $out[$table] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $where[] = "is_private = 0";
       } elseif ($table === 'blog_posts') {
-        $stmt = $pdo->query("SELECT * FROM blog_posts WHERE status = 'published'");
-        $out[$table] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-      } else {
-        $stmt = $pdo->query("SELECT * FROM {$table}");
-        $out[$table] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $where[] = "status = 'published'";
+      } elseif ($table === 'deleted_rows') {
+        $where[] = "table_name IN ('notes','blog_categories','blog_posts')";
       }
     }
+
+    if ($clientSyncAt && $syncColumn) {
+      $where[] = "{$syncColumn} IS NOT NULL";
+      $where[] = "{$syncColumn}::timestamptz > :since";
+      $params[':since'] = $clientSyncAt;
+    }
+
+    $sql = "SELECT * FROM {$table}";
+    if (count($where) > 0) {
+      $sql .= " WHERE " . implode(" AND ", $where);
+    }
+
+    if (count($params) > 0) {
+      $stmt = $pdo->prepare($sql);
+      $stmt->execute($params);
+      $out[$table] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+      $stmt = $pdo->query($sql);
+      $out[$table] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
   }
-  respond(['ok' => true, 'data' => $out]);
+  respond(['ok' => true, 'data' => $out, 'serverSyncAt' => $serverSyncAt]);
 }
 
 respond(['ok' => false, 'error' => 'not_found'], 404);

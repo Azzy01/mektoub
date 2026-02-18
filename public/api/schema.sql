@@ -47,8 +47,12 @@ CREATE TABLE IF NOT EXISTS files (
 CREATE TABLE IF NOT EXISTS notebooks (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
+
+ALTER TABLE notebooks ADD COLUMN IF NOT EXISTS updated_at TEXT;
+UPDATE notebooks SET updated_at = created_at WHERE updated_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS project_nodes (
   id TEXT PRIMARY KEY,
@@ -65,8 +69,12 @@ CREATE TABLE IF NOT EXISTS project_nodes (
 CREATE TABLE IF NOT EXISTS blog_categories (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
+
+ALTER TABLE blog_categories ADD COLUMN IF NOT EXISTS updated_at TEXT;
+UPDATE blog_categories SET updated_at = created_at WHERE updated_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS blog_posts (
   id TEXT PRIMARY KEY,

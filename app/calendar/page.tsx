@@ -62,8 +62,10 @@ export default function Page() {
   }, [authed])
 
   const refresh = useCallback(async () => {
-    await syncNow()
     await loadLocal()
+    void syncNow().catch(() => {
+      // Ignore background sync errors in UI refresh path.
+    })
   }, [loadLocal])
 
   useEffect(() => {
@@ -139,7 +141,6 @@ export default function Page() {
       priority: newPriority,
       urgent: newUrgent ? 1 : 0,
     })
-    await syncNow()
     setNewTitle('')
     setNewContent('')
     setNewTags('')

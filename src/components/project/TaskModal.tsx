@@ -93,6 +93,12 @@ export default function TaskModal(props: {
 
   if (!props.open) return null
 
+  function syncInBackground() {
+    void syncNow().catch(() => {
+      // Ignore sync errors in local-first modal flow.
+    })
+  }
+
   async function save() {
     if (!note) return
     setSaving(true)
@@ -108,8 +114,8 @@ export default function TaskModal(props: {
         urgent: (draft.urgent ?? 0) as 0 | 1,
       }
       await updateNote(note.id, patch)
-      await syncNow()
       await props.onSaved()
+      syncInBackground()
       props.onClose()
     } catch (e: any) {
       setError(e?.message ?? 'Failed to save')

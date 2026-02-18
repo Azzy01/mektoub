@@ -63,9 +63,8 @@ export default function ProjectsSection() {
   const { authed } = useAuth()
   const [quickAdd, setQuickAdd] = useState<Record<string, string>>({})
 
-  const load = useCallback(async () => {
+  const loadLocal = useCallback(async () => {
     setLoading(true)
-    await syncNow()
     // load all projects
     const ps = await listNotes({ type: 'project', status: 'all', includePrivate: authed })
 
@@ -91,9 +90,19 @@ export default function ProjectsSection() {
     setLoading(false)
   }, [authed])
 
+  const refresh = useCallback(async () => {
+    await loadLocal()
+    void syncNow().catch(() => {
+      // Ignore background sync errors in local-first load path.
+    })
+  }, [loadLocal])
+
   useEffect(() => {
-    void load()
-  }, [load])
+    void refresh()
+    const onSync = () => void loadLocal()
+    window.addEventListener('mektoub-sync-complete', onSync)
+    return () => window.removeEventListener('mektoub-sync-complete', onSync)
+  }, [loadLocal, refresh])
 
   const sorted = useMemo(() => {
     const filtered = statusFilter === 'all'
@@ -185,8 +194,7 @@ export default function ProjectsSection() {
                     onChange={async (e) => {
                       e.stopPropagation()
                       await updateNote(b.project.id, { status: e.target.value as Note['status'] })
-                      await syncNow()
-                      await load()
+                      await refresh()
                     }}
                   >
                     <option value="open">open</option>
@@ -220,9 +228,8 @@ export default function ProjectsSection() {
                         const title = (quickAdd[b.project.id] || '').trim()
                         if (!title) return
                         await createTaskInProject({ projectId: b.project.id, title })
-                        await syncNow()
                         setQuickAdd((prev) => ({ ...prev, [b.project.id]: '' }))
-                        await load()
+                        await refresh()
                       }}
                     />
                     <button
@@ -231,9 +238,8 @@ export default function ProjectsSection() {
                         const title = (quickAdd[b.project.id] || '').trim()
                         if (!title) return
                         await createTaskInProject({ projectId: b.project.id, title })
-                        await syncNow()
                         setQuickAdd((prev) => ({ ...prev, [b.project.id]: '' }))
-                        await load()
+                        await refresh()
                       }}
                     >
                       Add
@@ -245,8 +251,7 @@ export default function ProjectsSection() {
                     taskNotesById={b.taskNotesById}
                     onStatusChange={async (id, nextStatus) => {
                       await updateNote(id, { status: nextStatus })
-                      await syncNow()
-                      await load()
+                      await refresh()
                     }}
                   />
                 </div>

@@ -11,6 +11,7 @@ function Tab({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
+      prefetch={false}
       className={`px-3 py-2 border rounded-full text-sm transition ${
         active ? 'bg-white/20 border-white/30' : 'border-white/10 hover:bg-white/10'
       }`}
@@ -31,6 +32,8 @@ export default function TopNav() {
         <Tab href="/calendar" label="Calendar" />
         <Tab href="/projects" label="Projects" />
         <Tab href="/blog" label="Blog" />
+        <Tab href="/finance" label="Finance" />
+        <Tab href="/goals" label="Goals" />
       </div>
       <div className="ml-auto flex flex-wrap items-center gap-2 text-xs">
         {authed ? (

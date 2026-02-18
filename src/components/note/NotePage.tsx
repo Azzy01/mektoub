@@ -74,10 +74,7 @@ export default function NotePage({ id }: { id: string }) {
     return `/${returnTo}`
   }
 
-  async function load(syncFirst = false) {
-    if (!isNew && syncFirst) {
-      await syncNow()
-    }
+  async function load() {
     if (isNew) {
       const dummy: Note = {
         id: 'new',
@@ -149,14 +146,17 @@ export default function NotePage({ id }: { id: string }) {
   }
 
   useEffect(() => {
-    void load(true)
+    void load()
+    void syncNow().catch(() => {
+      // Ignore background sync errors in local-first load path.
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   useEffect(() => {
     if (isNew) return
     const onSync = () => {
-      void load(false)
+      void load()
     }
     window.addEventListener('mektoub-sync-complete', onSync)
     return () => window.removeEventListener('mektoub-sync-complete', onSync)

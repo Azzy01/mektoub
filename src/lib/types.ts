@@ -2,25 +2,24 @@ export type NoteType = 'idea' | 'project' | 'task' | 'list' | 'file'
 export type NoteStatus = 'open' | 'done' | 'archived'
 
 export type Note = {
-    id: string
-    type: NoteType
-    title: string
-    content: string
-    status: NoteStatus
-    due_at: string | null
-    project_id: string | null
-    tags: string[]            // ✅ add this
-    pinned: 0 | 1
-    priority: number
-    urgent: 0 | 1
-    is_private: 0 | 1
-    start_at: string | null
-    completed_at: string | null
-    notebook_id: string | null
-    created_at: string
-    updated_at: string
-  }
-  
+  id: string
+  type: NoteType
+  title: string
+  content: string
+  status: NoteStatus
+  due_at: string | null
+  project_id: string | null
+  tags: string[]
+  pinned: 0 | 1
+  priority: number
+  urgent: 0 | 1
+  is_private: 0 | 1
+  start_at: string | null
+  completed_at: string | null
+  notebook_id: string | null
+  created_at: string
+  updated_at: string
+}
 
 export type ListItem = {
   id: string
@@ -42,13 +41,12 @@ export type FileRow = {
   created_at: string
 }
 
-
 export type Notebook = {
   id: string
   name: string
   created_at: string
+  updated_at: string
 }
-
 
 export type ProjectNodeKind = 'group' | 'task'
 
@@ -74,6 +72,7 @@ export type BlogCategory = {
   id: string
   name: string
   created_at: string
+  updated_at: string
 }
 
 export type BlogPostStatus = 'draft' | 'published'
@@ -106,4 +105,53 @@ export type BlogFile = {
 export type BlogPost = BlogPostRow & {
   category_name: string
   cover_file?: BlogFile | null
+}
+
+export type FinanceCategory = {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string
+}
+
+export type FinanceSubcategory = {
+  id: string
+  category_id: string
+  name: string
+  created_at: string
+  updated_at: string
+}
+
+export type FinanceExpense = {
+  id: string
+  date: string
+  title: string
+  amount: number
+  category_id: string
+  subcategory_id: string | null
+  note: string
+  tags: string[]
+  created_at: string
+  updated_at: string
+}
+
+export type FinanceExpenseWithRefs = FinanceExpense & {
+  category_name: string
+  subcategory_name: string | null
+}
+
+export type GoalStatus = 'open' | 'done' | 'archived'
+
+export type Goal = {
+  id: string
+  parent_id: string | null
+  title: string
+  description: string
+  status: GoalStatus
+  progress: number
+  start_date: string
+  end_date: string
+  color: string | null
+  created_at: string
+  updated_at: string
 }

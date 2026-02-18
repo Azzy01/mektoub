@@ -49,8 +49,10 @@ export default function Page() {
   }, [authed])
 
   const refresh = useCallback(async () => {
-    await syncNow()
     await loadLocal()
+    void syncNow().catch(() => {
+      // Ignore background sync errors in UI refresh path.
+    })
   }, [loadLocal])
 
   useEffect(() => {

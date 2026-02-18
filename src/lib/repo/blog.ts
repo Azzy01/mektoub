@@ -48,10 +48,10 @@ export async function createBlogCategory(name: string): Promise<string> {
   if (!n) throw new Error('Category name is required')
   await db.query(
     `
-    INSERT INTO blog_categories (id, name, created_at)
-    VALUES ($1,$2,$3);
+    INSERT INTO blog_categories (id, name, created_at, updated_at)
+    VALUES ($1,$2,$3,$4);
     `,
-    [id, n, ts]
+    [id, n, ts, ts]
   )
   return id
 }
@@ -60,7 +60,11 @@ export async function updateBlogCategory(id: string, name: string): Promise<void
   const db = await getDb()
   const n = name.trim()
   if (!n) throw new Error('Category name is required')
-  await db.query(`UPDATE blog_categories SET name = $1 WHERE id = $2;`, [n, id])
+  await db.query(`UPDATE blog_categories SET name = $1, updated_at = $2 WHERE id = $3;`, [
+    n,
+    nowIso(),
+    id,
+  ])
 }
 
 export async function deleteBlogCategory(id: string): Promise<void> {

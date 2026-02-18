@@ -14,17 +14,28 @@ type TableName =
   | 'blog_files'
   | 'deleted_rows'
 
-const TABLES: TableName[] = [
+type SyncColumn = 'updated_at' | 'created_at'
+
+const TABLES: Array<{ name: TableName; syncColumn: SyncColumn }> = [
+  { name: 'notes', syncColumn: 'updated_at' },
+  { name: 'list_items', syncColumn: 'updated_at' },
+  { name: 'files', syncColumn: 'created_at' },
+  { name: 'notebooks', syncColumn: 'updated_at' },
+  { name: 'project_nodes', syncColumn: 'updated_at' },
+  { name: 'blog_categories', syncColumn: 'updated_at' },
+  { name: 'blog_posts', syncColumn: 'updated_at' },
+  { name: 'blog_files', syncColumn: 'created_at' },
+  { name: 'deleted_rows', syncColumn: 'updated_at' },
+]
+
+const PUBLIC_TABLE_SET = new Set<TableName>([
   'notes',
-  'list_items',
-  'files',
-  'notebooks',
-  'project_nodes',
   'blog_categories',
   'blog_posts',
-  'blog_files',
   'deleted_rows',
-]
+])
+
+const PUBLIC_DELETED_TABLE_SET = new Set(['notes', 'blog_categories', 'blog_posts'])
 
 const DELETABLE_TABLES: Array<Exclude<TableName, 'deleted_rows'>> = [
   'notes',
@@ -37,16 +48,68 @@ const DELETABLE_TABLES: Array<Exclude<TableName, 'deleted_rows'>> = [
   'blog_files',
 ]
 
+const TABLE_NAMES = TABLES.map((t) => t.name)
+const SYNC_CURSOR_KEY = 'mektoub-sync-cursor-v1'
+
 let syncInFlight: Promise<void> | null = null
+
+function getSyncCursor(): string | null {
+  if (typeof window === 'undefined') return null
+  return window.localStorage.getItem(SYNC_CURSOR_KEY)
+}
+
+function setSyncCursor(value: string) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(SYNC_CURSOR_KEY, value)
+}
+
+async function selectOutgoingRows(
+  db: Awaited<ReturnType<typeof getDb>>,
+  table: { name: TableName; syncColumn: SyncColumn },
+  since: string | null
+) {
+  if (!since) {
+    const res = await db.query(`SELECT * FROM ${table.name};`)
+    return res.rows as any[]
+  }
+
+  const res = await db.query(
+    `
+    SELECT *
+    FROM ${table.name}
+    WHERE ${table.syncColumn} IS NOT NULL
+      AND ${table.syncColumn}::timestamptz > $1::timestamptz;
+    `,
+    [since]
+  )
+  return res.rows as any[]
+}
 
 async function runSync(): Promise<void> {
   const token = getAuthToken()
   const db = await getDb()
+  const clientSyncAt = getSyncCursor()
 
   const data: Record<string, any[]> = {}
   for (const t of TABLES) {
-    const res = await db.query(`SELECT * FROM ${t};`)
-    data[t] = res.rows as any[]
+    if (!token && !PUBLIC_TABLE_SET.has(t.name)) {
+      data[t.name] = []
+      continue
+    }
+
+    let rows = await selectOutgoingRows(db, t, clientSyncAt)
+    if (!token) {
+      if (t.name === 'notes') {
+        rows = rows.filter((r) => Number((r as any).is_private ?? 0) !== 1)
+      } else if (t.name === 'blog_posts') {
+        rows = rows.filter((r) => String((r as any).status ?? '') !== 'draft')
+      } else if (t.name === 'deleted_rows') {
+        rows = rows.filter((r) =>
+          PUBLIC_DELETED_TABLE_SET.has(String((r as any).table_name ?? ''))
+        )
+      }
+    }
+    data[t.name] = rows
   }
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -55,7 +118,7 @@ async function runSync(): Promise<void> {
   const res = await fetch('/api/sync', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ data }),
+    body: JSON.stringify({ data, clientSyncAt }),
     cache: 'no-store',
   })
   if (!res.ok) {
@@ -89,7 +152,7 @@ async function runSync(): Promise<void> {
 
   await db.exec('BEGIN;')
   try {
-    for (const t of TABLES) {
+    for (const t of TABLE_NAMES) {
       const rows = json.data[t] || []
       for (const r of rows) {
         const cols = Object.keys(r)
@@ -128,6 +191,12 @@ async function runSync(): Promise<void> {
     await db.exec('ROLLBACK;')
     throw e
   }
+
+  const serverSyncAt =
+    typeof json?.serverSyncAt === 'string' && json.serverSyncAt
+      ? json.serverSyncAt
+      : new Date().toISOString()
+  setSyncCursor(serverSyncAt)
 
   window.dispatchEvent(new Event('mektoub-sync-complete'))
 }

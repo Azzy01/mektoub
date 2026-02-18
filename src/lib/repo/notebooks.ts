@@ -23,8 +23,8 @@ export async function createNotebook(name: string): Promise<string> {
   if (!clean) throw new Error('Notebook name is required')
 
   await db.query(
-    `INSERT INTO notebooks (id, name, created_at) VALUES ($1,$2,$3);`,
-    [id, clean, ts]
+    `INSERT INTO notebooks (id, name, created_at, updated_at) VALUES ($1,$2,$3,$4);`,
+    [id, clean, ts, ts]
   )
 
   return id
@@ -34,7 +34,7 @@ export async function renameNotebook(id: string, name: string): Promise<void> {
   const db = await getDb()
   const clean = name.trim()
   if (!clean) throw new Error('Notebook name is required')
-  await db.query(`UPDATE notebooks SET name = $1 WHERE id = $2;`, [clean, id])
+  await db.query(`UPDATE notebooks SET name = $1, updated_at = $2 WHERE id = $3;`, [clean, nowIso(), id])
 }
 
 export async function deleteNotebook(id: string): Promise<void> {
